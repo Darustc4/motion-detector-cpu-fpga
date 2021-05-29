@@ -15,7 +15,7 @@
 namespace motdet
 {
 
-    // Classes and structs
+    // Class definitions
 
     /**
      * @brief Represents an image (or video frame) as a flat structure.
@@ -99,8 +99,18 @@ namespace motdet
          */
         inline std::size_t get_total() const  { return total_; };
 
+        /**
+         * @brief Get the internal data vector.
+         * @return const std::vector<T>&
+         */
         inline const std::vector<T>& get_data() const { return data_; }
 
+        /**
+         * @brief Set a new value for the internal data vector.
+         * @param data Data vector, must be of the same type as the current one.
+         * @param width Length of each row in the image.
+         * @throw invalid_argument if width == 0 or the given width is not compatible with the given data vector.
+         */
         inline void set_data(const std::vector<T>& data, const std::size_t width)
         {
             if(width == 0) throw std::invalid_argument("ERROR Constructor: width must be >0.");
@@ -113,6 +123,12 @@ namespace motdet
             data_ = data;
         }
 
+        /**
+         * @brief Set a new value for the internal data vector. But now for rvalues!
+         * @param data Data vector, must be of the same type as the current one.
+         * @param width Length of each row in the image.
+         * @throw invalid_argument if width == 0 or the given width is not compatible with the given data vector.
+         */
         inline void set_data(std::vector<T>&& data, const std::size_t width)
         {
             if(width == 0) throw std::invalid_argument("ERROR Constructor: width must be >0.");
@@ -145,25 +161,35 @@ namespace motdet
         std::vector<T> data_;
     };
 
-
-    /**
-     * @brief A connected set of pixels with it's corresponding bounding box.
-     */
-    struct Contour{
-        int id;                       /**< Unique id of the contour within a Contours class                                       */
-        int parent;                   /**< id of parent contour, 0 means top-level contour (no parent)                            */
-        bool is_hole;                 /**< A contour can either surround a hole (0-pixels) or be an outline, surrounding 1-pixels */
-        std::size_t n_pixels;         /**< Number of border pixels that compose this Contour                                      */
-        std::size_t bb_tl_x, bb_tl_y; /**< Top left point of the bounding box of the Contour                                      */
-        std::size_t bb_br_x, bb_br_y; /**< Bottom right point of the bounding box of the Contour                                  */
-    };
-
-
     /**
      * @brief Detects motion in a given grayscale frame, comparing against previous frames.
      */
     class Motion_detector{
     public:
+
+        /**
+         * @brief Represents a bounding box on an image. Mainly used to return the position of the detected movement.
+         */
+        struct Contour
+        {
+            int id;                       /**< Unique id of the contour within a Contours class                                       */
+            int parent;                   /**< id of parent contour, 0 means top-level contour (no parent)                            */
+            bool is_hole;                 /**< A contour can either surround a hole (0-pixels) or be an outline, surrounding 1-pixels */
+            std::size_t n_pixels;         /**< Number of border pixels that compose this Contour                                      */
+            std::size_t bb_tl_x, bb_tl_y; /**< Top left point of the bounding box of the Contour                                      */
+            std::size_t bb_br_x, bb_br_y; /**< Bottom right point of the bounding box of the Contour                                  */
+        };
+
+        /**
+         * @brief Container for all the relevant info to return as a result when a frame is checked for movement.
+         */
+        struct Detection
+        {
+            unsigned long long timestamp;                /**< The timestamp of the video the motion was detected from */
+            bool has_detections;                         /**< True if motion has been detected                        */
+            std::vector<md::Contour> detection_contours; /**< Contour of the detected movements                       */
+            unsigned long long processing_time;          /**< Time it took the frame to be processed                  */
+        };
 
         /**
          * @brief Constructor. Uses fps to set the rate at which the reference image is adjusted.
@@ -172,7 +198,7 @@ namespace motdet
          * @param queue_size Amount of frames enqueued (waiting or processing). Any less than "threads" will cripple concurrency.
          * @param downsample_factor Reduce the size of the image for faster processing. 1 will not downsample. Must be >0.
          * @param frame_update_ratio Ratio at which the reference is updated. Closer to 0 is slower. Calculate: 1/(fps*seconds), default is fps 30, seconds 5.
-         * @throw invalid_argument if threads == 0, queue_size == 0, width < 10 or height < 10
+         * @throw invalid_argument if threads == 0, queue_size == 0, downsample_factor == 0, width < 10 or height < 10
          */
         Motion_detector(const std::size_t width, const std::size_t height, const std::size_t threads = 1, const std::size_t queue_size = 2, const unsigned int downsample_factor = 1, const float frame_update_ratio = 0.0067);
 
@@ -240,17 +266,17 @@ namespace motdet
         /**
          * @brief Gets the contours detected in the oldest frame submitted to the motion detector.
          * @details Will only return successfully if the oldest frame submitted is finished, regardless of the completion state of other frames.
-         * @return std::vector<Contour> Set of contours detected in the frame. If empty, no relevant motion was detected.
+         * @return detection struct with the detected motion.
          * @exception runtime_error if the queue is empty and blocking is set to false.
          */
-        std::pair<unsigned long long, std::vector<Contour>> get_detected_contours(bool blocking);
+        Detection get_detection(bool blocking);
 
         /**
          * @brief Returns whether the oldest frame submitted has been processed. Thread safe method.
          * @return true if the oldest contours detected can be extracted safely with a non blocking get.
          * @return false if the contours are not yet ready to be returned.
          */
-        bool is_frame_ready() const { std::unique_lock<std::mutex> locker(tasks_mutex_); return task_queue_.front().state == motdet_task_::task_state::done; }
+        bool is_frame_ready() const { std::unique_lock<std::mutex> locker(tasks_mutex_); return task_queue_.front().state == Motdet_task_::task_state::done; }
 
         /**
          * @brief Will start saving grayscale debug images in the specified directory everytime detect_motion is called.
@@ -279,11 +305,14 @@ namespace motdet
 
         unsigned long long last_ref_update_time_, last_submitted_time_;
 
-        struct motdet_task_
+        /**
+         * @brief Container for a motion detection job that is either pending for processing, is being processed or is done but not yet submitted.
+         */
+        struct Motdet_task_
         {
             enum class task_state : unsigned char { waiting, processing, done };
 
-            unsigned long long timestamp;
+            unsigned long long timestamp, processing_time = 0;
             task_state state = task_state::waiting;
 
             std::unique_ptr<Image<unsigned short>> image;
@@ -298,8 +327,9 @@ namespace motdet
 
         std::vector<std::thread> workers_container_;
         bool keep_workers_alive_ = true;
-        std::deque<motdet_task_> task_queue_; /**< Stores the queued tasks sent to the motion detector. From oldest to newest. */
-        std::deque<std::pair<unsigned long long, std::vector<Contour>>> result_queue_; /**< Stores the resulting contorus detected. */
+
+        std::deque<Motdet_task_> task_queue_; /**< Stores the queued tasks sent to the motion detector. From oldest to newest. */
+        std::deque<Detection> result_queue_;  /**< Stores the resulting contorus detected. */
 
         void detect_motion_(std::size_t thread_id); /**< Executed by the worker threads on loop. */
 
@@ -310,7 +340,7 @@ namespace motdet
          */
         inline bool processable_frame_check_() noexcept
         {
-            for(const motdet_task_ &task : task_queue_) if(task.state == motdet_task_::task_state::waiting) return true;
+            for(const Motdet_task_ &task : task_queue_) if(task.state == Motdet_task_::task_state::waiting) return true;
             return false;
         }
     };
