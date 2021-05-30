@@ -10,6 +10,10 @@
 **/doc/html
 **/doc/latex
 
+# Custom
+
+**/dev_notes
+
 # Compiled Object files
 *.slo
 *.lo
