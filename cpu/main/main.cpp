@@ -52,16 +52,16 @@ int main(int argc, char** argv)
     out_dir = argv[2];
     fs::path out_recordings_dir(out_dir);
     if(!fs::exists(out_recordings_dir)) throw std::invalid_argument("The selected output directory is not accessible or does not exist.");
-    fs::remove_all(out_recordings_dir);   // Clear the output directory.
+    fs::remove_all(out_recordings_dir / "*");   // Clear the output directory.
 
     // Get threads
     try { if(argc >= 4) threads = std::abs(std::stoi(argv[3])); }
-    catch(const std::exception &e) throw std::invalid_argument("The number of threads must be a number.");
+    catch(const std::exception &e) { throw std::invalid_argument("The number of threads must be a number."); }
     if(threads == 0) throw std::invalid_argument("The number of threads must be at least 1");
 
     // Get reduction factor
     try { if(argc >= 5) reduction_factor = std::abs(std::stoi(argv[4])); }
-    catch(const std::exception &e) throw std::invalid_argument("The reduction factor must be a number.");
+    catch(const std::exception &e) { throw std::invalid_argument("The reduction factor must be a number."); }
     if(reduction_factor == 0) throw std::invalid_argument("The reduction factor must be at least 1");
 
     // Get display stats
@@ -72,7 +72,7 @@ int main(int argc, char** argv)
     cv::VideoCapture cap;
 
     // Open either a connected camera or an input video.
-    if(input_param == "camera")
+    if(in_source == "camera")
     {
         int device_id = 0;             // 0 = open default camera
         int api_id = cv::CAP_ANY;      // 0 = autodetect default API
@@ -81,7 +81,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        cap.open(input_param);
+        cap.open(in_source);
         std::cout << "Using .mp4 input..." << std::endl;
     }
     if (!cap.isOpened()) throw std::runtime_error("Failed opening input.");
@@ -97,6 +97,7 @@ int main(int argc, char** argv)
     cv::Size stream_res = cv::Size(width, height);
 
     // Create the Motion detector object from the library.
+    // Specify an input queue 2 times the amount of threads, so that threads are always busy working.
     md::Motion_detector motion_detector(width, height, threads, threads*2, reduction_factor);
 
     // We will record for a few extra seconds after motion is no longer detected to avoid videos turnign off and on intermittently.
@@ -104,25 +105,36 @@ int main(int argc, char** argv)
     unsigned long long millis_last_movement = 0;
     unsigned long long millis_prev_frame = 0, millis_frame = 0;
     unsigned int recordings_counter = 0; // We will create a separate video for each time movement is detected, use a counter to sequence videos.
-    bool recording = false, input_video_ended = false;
+    bool recording = false, input_video_ended = false, first_iteration = true;
 
     if(display_stats) auto t_video0 = high_resolution_clock::now();
 
     // Start grabbing frames and checking for motion. Store the captured frame is a OpenCV Matrix (Mat).
 
-    cv::Mat frame;
-    cap.read(frame); // Read the first frame outside the loop so that it is lost because the first frame can be corrupted (timestamp wise).
+    std::vector<motdet::Motion_detector::Contour> contours; // Storage for detected movement across frames.
+
+    auto video_procesing_start = high_resolution_clock::now(); // Chrono the time it takes to process the input source.
     while(true)
     {
         // Only keep grabbing new frames as long as the input source has frames. A camera will not run out, but a video will.
         if(!input_video_ended)
         {
-            // Wait for a new frame and store it into 'frame'
-            cap.read(frame);
-            millis_prev_frame = millis_frame;
-            millis_frame = cap.get(cv::CAP_PROP_POS_MSEC);
+            // Create a container for the new frame that we are going to read, and fill it from the input source.
+            std::shared_ptr<cv::Mat> frame = std::make_unique<cv::Mat>();
+            cap.read(*frame.get());
 
-            if(frame.empty() || millis_frame < millis_prev_frame)
+            if(first_iteration)
+            {
+                millis_prev_frame = millis_frame = 0;
+                first_iteration = false;
+            }
+            else
+            {
+                millis_prev_frame = millis_frame;
+                millis_frame = cap.get(cv::CAP_PROP_POS_MSEC);
+            }
+
+            if(frame->empty() || millis_frame < millis_prev_frame)
             {
                 std::cout << "Reached end of video, waiting for all frames to be processed..." << std::endl;
                 input_video_ended = true;
@@ -133,13 +145,14 @@ int main(int argc, char** argv)
                 auto grayscale_input_frame = std::make_unique<md::Image<unsigned short>>(width, height, 0);
 
                 // Get the pointer to the input RGB data, and make the conversion from the rgb to grayscale.
-                unsigned char *rgb_data = (unsigned char *)frame.data;
-                md::uchar_to_bw(rgb_data, frame.total(), *grayscale_input_frame.get());
+                unsigned char *rgb_data = (unsigned char *)frame->data;
+                md::uchar_to_bw(rgb_data, frame->total(), *grayscale_input_frame.get());
 
-                // Enqueue this new grayscale image to the motion detector.
-                // Note that moving a unique_ptr to a parameter will transfer the ownership of the data contained away forever.
-                // It is not the reponsability of the motion detector to deal with it.
-                motion_detector.enqueue_frame(std::move(grayscale_input_frame), millis_frame, true); // Blocks until the frame is submittable
+                // Enqueue this new grayscale image to the motion detector, transfering the ownership of the Image away.
+                // We also sent the shared ptr with the frame we read from source.
+                // The reason for this is because we want to get it back when polling for results later so that we can
+                // use it to record a video if motion is detected.
+                motion_detector.enqueue_frame(std::move(grayscale_input_frame), millis_frame, true, frame);
             }
         }
         else
@@ -149,6 +162,10 @@ int main(int argc, char** argv)
         }
 
         // Now poll for results and if there are, check whether we need to start recording or not.
+        // If we simply read a frame from the source, enqueue it, and wait for the frame to be done to know if there
+        // is movement to start recording or not we will not be taking advantage of the threads in the motion detector.
+        // Instead we can push a new frame each iteration and try to poll in non-blocking mode, if there is no results
+        // we simply continue to the next iteration, filling up the queue and takign advantage of the concurrency.
 
         md::Motion_detector::Detection detected_result;
         bool result_available = true;
@@ -159,28 +176,32 @@ int main(int argc, char** argv)
         if(result_available)
         {
             // Process the detected movement contours. Start or stop recording accordingly.
-            std::cout << "Got results for " << detected_result.first << std::endl;
 
-            if(!detected_result.second.empty())
+            if(recording) std::cout << "[REC] ";
+            std::cout << "Got results for " << detected_result.timestamp << ".";
+            if(display_stats) std::cout << " | Processing time: " << detected_result.processing_time << " milliseconds." << std::endl;
+            else std::cout << std::endl;
+
+            if(detected_result.has_detections)
             {
                 if(!recording)
                 {
                     // First movement detected in a while, start recording
 
                     fs::path file("motion_" + std::to_string(recordings_counter) + ".mp4");
-                    fs::path rec_path = rec_dir / file;
+                    fs::path rec_path = out_recordings_dir / file;
 
                     std::cout << "Motion detected. Recording to " << rec_path << std::endl;
                     writer.open(rec_path, codec, fps, stream_res, true); // Color video is assumed.
                 }
 
-                millis_last_movement = detected_result.first;
-                contours = detected_result.second;
+                millis_last_movement = detected_result.timestamp;
+                contours = detected_result.detection_contours;
                 recording = true;
             }
             else
             {
-                if(recording && millis_last_movement + millis_keep_recording < detected_result.first)
+                if(recording && millis_last_movement + millis_keep_recording < detected_result.timestamp)
                 {
                     // No movement detected in feed after a while, closing recording.
 
@@ -195,20 +216,34 @@ int main(int argc, char** argv)
 
             if(recording)
             {
-                for(md::Contour &cont : contours)
+                // Remember how we sent the raw frame as a shared_ptr when enqueueing? Recover it now.
+                cv::Mat* recovered_frame = (cv::Mat*)detected_result.data_keep.get();
+
+                // Draw the detected motion onto the recovered frame as rectangles.
+                for(md::Motion_detector::Contour &cont : contours)
                 {
                     // Draw the detected movement on screen
 
                     cv::Point pt1(cont.bb_tl_x, cont.bb_tl_y);
                     cv::Point pt2(cont.bb_br_x, cont.bb_br_y);
-                    cv::rectangle(frame, pt1, pt2, cv::Scalar(0, 255, 0));
+                    cv::rectangle(*recovered_frame, pt1, pt2, cv::Scalar(0, 255, 0));
                 }
-                writer.write(frame);
+
+                // Save the edited frame into the video we are recording.
+                writer.write(*recovered_frame);
             }
         }
     }
 
-    auto t_video1 = high_resolution_clock::now();
-    std::cout << "Processed video in " << duration_cast<milliseconds>(t_video1 - t_video0).count() << " millis " << std::endl;
+    if(display_stats)
+    {
+        auto video_procesing_end = high_resolution_clock::now();
+        std::cout << "Processed video in " << duration_cast<milliseconds>(video_procesing_end - video_procesing_start).count() << " millis " << std::endl;
+    }
+    else
+    {
+        std::cout << "Finished processing video, exiting..." << std::endl;
+    }
+
     return 0;
 }

@@ -5,6 +5,11 @@
 
 **/build
 
+# Doxygen generated
+
+**/doc/html
+**/doc/latex
+
 # Compiled Object files
 *.slo
 *.lo

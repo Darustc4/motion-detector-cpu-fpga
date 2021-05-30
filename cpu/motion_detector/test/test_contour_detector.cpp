@@ -57,14 +57,14 @@ namespace test
             };
 
             motdet::Image<int> img0(data0_in, 15), img0_expected(data0_expected, 15);
-            std::vector<motdet::Contour> img0_contours;
+            std::vector<motdet::Motion_detector::Contour> img0_contours;
 
-            motdet::imgutil::contour_detection(img0, img0_contours);
+            motdet::imgutil::contour_detection(img0, img0_contours, false); // No edge trimming
 
             bool test_img0_map = test_compare_vectors<int, int>(img0.get_data(),img0_expected.get_data());
             CHECK_TRUE(test_img0_map);
 
-            motdet::Contour cont = img0_contours[0];
+            motdet::Motion_detector::Contour cont = img0_contours[0];
             bool test_img0_c2_id = cont.id == 2;
             bool test_img0_c2_parent = cont.parent == 0;
             bool test_img0_c2_hole = cont.is_hole == false;
@@ -105,7 +105,7 @@ namespace test
             bool test_img0 = test_img0_map && test_img0_conts;
 
             /* Useful for debugging
-            for(const motdet::Contour &cont : img0_contours)
+            for(const motdet::Motion_detector::Contour &cont : img0_contours)
             {
                 std::cout << "id " << cont.id << std::endl;
                 std::cout << "parent " << cont.parent << std::endl;
@@ -121,21 +121,21 @@ namespace test
             // Check 2, hierarchy test
 
             std::vector<int> data1_in = {
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+               0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   0,   0,   0,   0,   0,   0,   0,   0,
                0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   0,
                0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   0,
                0,   1,   1,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   0,
                0,   1,   1,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   0,   1,   1,   0,
                0,   1,   1,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   0,   1,   1,   0,
-               0,   1,   1,   0,   1,   1,   0,   0,   0,   0,   0,   0,   0,   1,   1,   0,   1,   1,   0,
-               0,   1,   1,   0,   1,   1,   0,   1,   1,   1,   1,   0,   0,   1,   1,   0,   1,   1,   0,
-               0,   1,   1,   0,   1,   1,   0,   1,   1,   1,   0,   0,   0,   1,   1,   0,   1,   1,   0,
-               0,   1,   1,   0,   1,   1,   0,   1,   1,   1,   0,   1,   0,   1,   1,   0,   1,   1,   0,
-               0,   1,   1,   0,   1,   1,   0,   1,   1,   1,   0,   0,   0,   1,   1,   0,   1,   1,   0,
-               0,   1,   1,   0,   1,   1,   0,   1,   1,   1,   1,   0,   0,   1,   1,   0,   1,   1,   0,
-               0,   1,   1,   0,   1,   1,   0,   0,   0,   0,   0,   0,   0,   1,   1,   0,   1,   1,   0,
-               0,   1,   1,   0,   1,   1,   0,   1,   1,   1,   1,   1,   0,   1,   1,   0,   1,   1,   0,
-               0,   1,   1,   0,   1,   1,   0,   1,   0,   1,   0,   1,   0,   1,   1,   0,   1,   1,   0,
+               1,   1,   1,   0,   1,   1,   0,   0,   0,   0,   0,   0,   0,   1,   1,   0,   1,   1,   0,
+               1,   1,   1,   0,   1,   1,   0,   1,   1,   1,   1,   0,   0,   1,   1,   0,   1,   1,   0,
+               1,   1,   1,   0,   1,   1,   0,   1,   1,   1,   0,   0,   0,   1,   1,   0,   1,   1,   0,
+               1,   1,   1,   0,   1,   1,   0,   1,   1,   1,   0,   1,   0,   1,   1,   0,   1,   1,   0,
+               1,   1,   1,   0,   1,   1,   0,   1,   1,   1,   0,   0,   0,   1,   1,   0,   1,   1,   0,
+               1,   1,   1,   0,   1,   1,   0,   1,   1,   1,   1,   0,   0,   1,   1,   0,   1,   1,   0,
+               0,   1,   1,   0,   1,   1,   0,   0,   0,   0,   0,   0,   0,   1,   1,   0,   1,   1,   1,
+               0,   1,   1,   0,   1,   1,   0,   1,   1,   1,   1,   1,   0,   1,   1,   0,   1,   1,   1,
+               0,   1,   1,   0,   1,   1,   0,   1,   0,   1,   0,   1,   0,   1,   1,   0,   1,   1,   1,
                0,   1,   1,   0,   1,   1,   0,   1,   0,   1,   0,   1,   0,   1,   1,   0,   1,   1,   0,
                0,   1,   1,   0,   1,   1,   0,   1,   0,   1,   0,   1,   0,   1,   1,   0,   1,   1,   0,
                0,   1,   1,   0,   1,   1,   0,   1,   0,   1,   0,   1,   0,   1,   1,   0,   1,   1,   0,
@@ -146,8 +146,8 @@ namespace test
                0,   1,   1,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   0,   1,   1,   0,
                0,   1,   1,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   0,
                0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   0,
-               0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   0,
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0
+               0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
+               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   1,   1
             };
 
             std::vector<int> data1_expected = {
@@ -181,9 +181,9 @@ namespace test
             };
 
             motdet::Image<int> img1(data1_in, 19), img1_expected(data1_expected, 19);
-            std::vector<motdet::Contour> img1_contours;
+            std::vector<motdet::Motion_detector::Contour> img1_contours;
 
-            motdet::imgutil::contour_detection(img1, img1_contours);
+            motdet::imgutil::contour_detection(img1, img1_contours); // Trimming edges
 
             bool test_img1_map = test_compare_vectors<int, int>(img1.get_data(),img1_expected.get_data());
             CHECK_TRUE(test_img1_map);

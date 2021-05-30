@@ -6,7 +6,6 @@
 #include <vector>
 #include <array>
 #include <deque>
-#include <filesystem>
 #include <fstream>
 #include <mutex>
 #include <condition_variable>
@@ -141,22 +140,7 @@ namespace motdet
             data_ = std::move(data);
         }
 
-        // General Methods
-
-        inline void print_data() const
-        {
-            for(std::size_t i = 0; i < h_; ++i)
-            {
-                for(std::size_t j = 0; j < w_; ++j)
-                {
-                    std::cout << std::setw(3) << (long long)data_[i*w_ + j] << ", ";
-                }
-                std::cout << std::endl;
-            }
-        }
-
     private:
-
         std::size_t w_, h_, total_;
         std::vector<T> data_;
     };
@@ -182,22 +166,29 @@ namespace motdet
 
         /**
          * @brief Container for all the relevant info to return as a result when a frame is checked for movement.
+         * @details Also contains the data_keep container that points at whatever data was sent as extra metadata when enqueing.
          */
         struct Detection
         {
-            unsigned long long timestamp;                /**< The timestamp of the video the motion was detected from */
-            bool has_detections;                         /**< True if motion has been detected                        */
-            std::vector<md::Contour> detection_contours; /**< Contour of the detected movements                       */
-            unsigned long long processing_time;          /**< Time it took the frame to be processed                  */
+            unsigned long long timestamp;            /**< The timestamp of the video the motion was detected from */
+            bool has_detections;                     /**< True if motion has been detected                        */
+            std::vector<Contour> detection_contours; /**< Contour of the detected movements                       */
+            unsigned long long processing_time;      /**< Time it took the frame to be processed                  */
+
+            std::shared_ptr<void> data_keep; /**< Will point at NULL if no data_keep was sent when enqueueing     */
         };
 
         /**
          * @brief Constructor. Uses fps to set the rate at which the reference image is adjusted.
-         * @details Creates a threaded motion detector object. It uses a reference image internally to compare to and this reference is slowly interpolated with new frames to adapt to scenario changes. If the update span is too high, precision loss might make the reference not update, 5 seconds is a good update span.
+         * @details Creates a threaded motion detector object.
+         * It uses a reference image internally to compare to and this reference is slowly interpolated with new frames to adapt to scenario changes.
+         * If the update span is too high, precision loss might make the reference not update, 5 seconds is a good update span.
          * @param threads Number of threads to use for frame processing. Min 1. Reference updating is not 100% deterministic with >1 threads.
          * @param queue_size Amount of frames enqueued (waiting or processing). Any less than "threads" will cripple concurrency.
+         * Recommended values is threads*2.
          * @param downsample_factor Reduce the size of the image for faster processing. 1 will not downsample. Must be >0.
-         * @param frame_update_ratio Ratio at which the reference is updated. Closer to 0 is slower. Calculate: 1/(fps*seconds), default is fps 30, seconds 5.
+         * @param frame_update_ratio Ratio at which the reference is updated. Closer to 0 is slower.
+         * Calculate using the following formula: 1/(fps*seconds). The default used is fps = 30 and seconds = 5.
          * @throw invalid_argument if threads == 0, queue_size == 0, downsample_factor == 0, width < 10 or height < 10
          */
         Motion_detector(const std::size_t width, const std::size_t height, const std::size_t threads = 1, const std::size_t queue_size = 2, const unsigned int downsample_factor = 1, const float frame_update_ratio = 0.0067);
@@ -256,12 +247,16 @@ namespace motdet
         /**
          * @brief Will enqueue a frame to be processed by the image detector.
          * @param in Grayscale image to be processed wrapped in a smart pointer. Transfers ownership.
+         * @param timestamp_millis Time in milliseconds of the frame being sent in.
          * @param blocking If true, will wait for queue to not be full, if false, will throw if queue is full.
+         * @param data_keep Extra info to keep as "metadata" of the inputted frame, is returned as is upon result extraction.
+         * An example usage would be to store the original RGB data of the frame here, so that it can be saved to disk later
+         * if motion is detected.
          * @exception runtime_error if the queue is full and blocking is set to false. The input frame is lost forever.
          * @exception invalid_argument if the timestamp is older than one of the already enqueued frames.
-         * @exception invalid_argument if the new frame has a different resolution from the one set in the constructor.
+         * @exception invalid_argument if the new frame has a different resolution from the one set in the constructor or is NULL.
          */
-        void enqueue_frame(std::unique_ptr<Image<unsigned short>> in, unsigned long long timestamp_millis, bool blocking);
+        void enqueue_frame(std::unique_ptr<Image<unsigned short>> in, unsigned long long timestamp_millis, bool blocking, std::shared_ptr<void> data_keep = {});
 
         /**
          * @brief Gets the contours detected in the oldest frame submitted to the motion detector.
@@ -276,18 +271,7 @@ namespace motdet
          * @return true if the oldest contours detected can be extracted safely with a non blocking get.
          * @return false if the contours are not yet ready to be returned.
          */
-        bool is_frame_ready() const { std::unique_lock<std::mutex> locker(tasks_mutex_); return task_queue_.front().state == Motdet_task_::task_state::done; }
-
-        /**
-         * @brief Will start saving grayscale debug images in the specified directory everytime detect_motion is called.
-         * @param debug_dir Directory to save the images in. Must exist.
-         */
-        inline void save_debug_images(const std::string &debug_dir) { save_debug_images_ = true; debug_dir_ = std::filesystem::path(debug_dir); }
-
-        /**
-         * @brief Will stop saving debug images. If save_debug_images was not called, this method will not do anything.
-         */
-        inline void stop_debug_images() { save_debug_images_ = false; }
+        bool is_frame_ready() const { std::unique_lock<std::mutex> locker(results_mutex_); return result_queue_.size() > 0; }
 
     private:
 
@@ -296,9 +280,6 @@ namespace motdet
 
         float frame_update_ratio_;
         unsigned int min_cont_area_, downsample_factor_;
-
-        bool save_debug_images_ = false;
-        std::filesystem::path debug_dir_;
 
         bool has_reference_ = false;
         Image<unsigned short> reference_;
@@ -317,6 +298,8 @@ namespace motdet
 
             std::unique_ptr<Image<unsigned short>> image;
             std::vector<Contour> result_conts;
+
+            std::shared_ptr<void> data_keep;
         };
 
         std::size_t threads_;
@@ -334,7 +317,7 @@ namespace motdet
         void detect_motion_(std::size_t thread_id); /**< Executed by the worker threads on loop. */
 
         /**
-         * @brief Checks if there is at least one task in the queue that can be processed. Does not lock mutex.
+         * @brief Checks if there is at least one task in the queue that can be processed. Does not lock mutex, so do it before calling the method.
          * @return true if there is a task that can be processed.
          * @return false if there are no tasks or all are either being processed or finished.
          */

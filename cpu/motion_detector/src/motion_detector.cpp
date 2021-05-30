@@ -1,7 +1,6 @@
 #include "motion_detector.hpp"
 
 #include <iostream>
-#include <iomanip>
 
 #include <chrono>
 #include <stdexcept>
@@ -49,8 +48,9 @@ namespace motdet
         for(std::thread &t : workers_container_) t.join();
     }
 
-    void Motion_detector::enqueue_frame(std::unique_ptr<Image<unsigned short>> in, unsigned long long timestamp_millis, bool blocking)
+    void Motion_detector::enqueue_frame(std::unique_ptr<Image<unsigned short>> in, unsigned long long timestamp_millis, bool blocking, std::shared_ptr<void> data_keep)
     {
+        if(in.get() == NULL) throw std::invalid_argument("ERROR Enqueue: The input image is NULL.");
         if(in->get_total() != total_ || in->get_width() != w_) throw std::invalid_argument("ERROR Enqueue: Wrong resolution.");
 
         // Lock mutex for checks
@@ -73,6 +73,7 @@ namespace motdet
         Motdet_task_ new_task;
         new_task.timestamp = timestamp_millis;
         new_task.image = std::move(in); // Need to move smart pointer with move to represent ownership transfer
+        new_task.data_keep = data_keep; // Store the extra metadata but nothing will be done with it.
 
         task_queue_.push_back(std::move(new_task));
         locker.unlock();  // Release the lock and notfy one of the worker threads that there is a new available job to process.
@@ -140,7 +141,7 @@ namespace motdet
 
                 // Define all the container images for intermediate processing steps.
                 Image<unsigned short> blur_image(downsampled_w_, downsampled_h_, 0), sub_image(downsampled_w_, downsampled_h_, 0), new_ref_image(downsampled_w_, downsampled_h_, 0);
-                Image<unsigned char> thr_image(downsampled_w_, downsampled_h_, 0), cnt_image(downsampled_w_, downsampled_h_, 0), debug_image(downsampled_w_, downsampled_h_, 0);
+                Image<unsigned char> thr_image(downsampled_w_, downsampled_h_, 0), cnt_image(downsampled_w_, downsampled_h_, 0);
                 Image<int> dil_image(downsampled_w_, downsampled_h_, 0);
 
                 // Blur the image to remove any noise that can result in false positives.
@@ -226,8 +227,9 @@ namespace motdet
                 Detection det;
                 det.timestamp = to_submit->timestamp;
                 det.processing_time = to_submit->processing_time;
-                det.detection_contours = to_submit->result_conts;
-                det.has_detections = to_submit->result_conts.size() > 0;
+                det.detection_contours = std::move(to_submit->result_conts);
+                det.has_detections = det.detection_contours.size() > 0;
+                det.data_keep = to_submit->data_keep;
 
                 result_queue_.push_back(det);
                 to_submit = task_queue_.erase(to_submit); // This updates the iterator to the next element automatically.

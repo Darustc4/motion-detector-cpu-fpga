@@ -135,7 +135,8 @@ namespace motdet
             inline void pixel_sort_(IN_T &a, IN_T &b) { if (a > b) pixel_swap_<IN_T>(a, b); }
 
             /**
-             * @brief Apply a generic square kernel to an image. The kernel is applied by a function that takes all the pixels in and array and outputs the pixel result.
+             * @brief Apply a generic square kernel to an image.
+             * The kernel is applied by a function that takes all the pixels in and array and outputs the pixel result.
              * @tparam IN_T must be a basic type of any bit length.
              * @tparam OUT_T must be a basic type of equal or greater length than IN_T.
              * @tparam K_SIZE is the size of the kernel to extract around each pixel. Must be powers of odd numbers: 1, 9, 25, 49...
@@ -147,7 +148,8 @@ namespace motdet
             void square_convolution(const Image<IN_T> &in, Image<OUT_T> &out, const std::function<OUT_T(std::array<IN_T, K_SIZE>&)> kernel_operator);
 
             /**
-             * @brief Apply a vertical line kernel to an image. The kernel is applied by a function that takes all the pixels in and array and outputs the pixel result.
+             * @brief Apply a vertical line kernel to an image.
+             * The kernel is applied by a function that takes all the pixels in and array and outputs the pixel result.
              * @tparam IN_T must be a basic type of any bit length.
              * @tparam OUT_T must be a basic type of equal or greater length than IN_T.
              * @tparam K_SIZE is the size of the kernel to extract. Must be odd numbers: 1, 3, 5, 7...
@@ -159,7 +161,8 @@ namespace motdet
             void vline_convolution(const Image<IN_T> &in, Image<OUT_T> &out, const std::function<OUT_T(std::array<IN_T, K_SIZE>&)> kernel_operator);
 
             /**
-             * @brief Apply a horizontal line kernel to an image. The kernel is applied by a function that takes all the pixels in and array and outputs the pixel result.
+             * @brief Apply a horizontal line kernel to an image.
+             * The kernel is applied by a function that takes all the pixels in and array and outputs the pixel result.
              * @tparam IN_T must be a basic type of any bit length.
              * @tparam OUT_T must be a basic type of equal or greater length than IN_T.
              * @tparam K_SIZE is the size of the kernel to extract. Must be odd numbers: 1, 3, 5, 7...
@@ -336,13 +339,6 @@ namespace motdet
          */
         template<typename IN_T, typename OUT_T>
         void upsample(const Image<IN_T> &in, Image<OUT_T> &out, std::size_t factor);
-
-        /**
-         * @brief Saves an 16b grayscale image to a given path.
-         * @param path Where to store the image.
-         * @param image An image that can contain any value from 0 to 65535.
-         */
-        inline void save_image_8b(const std::string &path, const Image<unsigned char> &image);
 
         // Include the file with the actual definitions for the headers we have declared above.
         #include "image_utils.ipp"

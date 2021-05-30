@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <iostream>
+#include <iomanip>
 
 namespace test
 {
@@ -31,6 +32,20 @@ namespace test
                 return false;
             }
         return true;
+    }
+
+    template<typename T>
+    void print_image(const motdet::Image<T> img, unsigned int spacing)
+    {
+        std::size_t height = img.get_height(), width = img.get_width();
+        for(std::size_t i = 0; i < height; ++i)
+        {
+            for(std::size_t j = 0; j < width; ++j)
+            {
+                std::cout << std::setw(spacing) << (long long)img[i*width + j] << ", ";
+            }
+            std::cout << std::endl;
+        }
     }
 
 } // namespace test

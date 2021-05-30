@@ -570,17 +570,3 @@ void upsample(const Image<IN_T> &in, Image<OUT_T> &out, std::size_t factor)
         }
     }
 }
-
-inline void save_image_8b(const std::string &path, const Image<unsigned char> &image)
-{
-    std::size_t height = image.get_height(), width = image.get_width();
-
-    // Open file binary
-    std::ofstream f(path, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
-
-    // Write PGM header
-    f << "P5\n" << width << " " << height << "\n" << 255 << "\n";
-
-    // Write data
-    f.write(reinterpret_cast<const char*>(image.get_data().data()), image.get_total());
-}

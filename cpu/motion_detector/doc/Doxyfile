@@ -1,0 +1,13 @@
+PROJECT_NAME           = motion_detector
+
+INPUT = ../include ../src
+
+OUTPUT_DIRECTORY       = .
+OUTPUT_LANGUAGE        = English
+
+BRIEF_MEMBER_DESC      = YES
+REPEAT_BRIEF           = YES
+
+GENERATE_HTML = YES
+HTML_OUTPUT = html/
+HTML_FILE_EXTENSION = .html

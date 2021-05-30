@@ -68,7 +68,7 @@ namespace motdet
          * @param nbd the id of the current border.
          * @param lnbd the id of the prebious encoutnered border.
          */
-        void follow_border(Image<int> &in, std::size_t width, Contour &found_contour, const std::size_t i, const std::size_t j, std::size_t i2, std::size_t j2, const int nbd, unsigned int &lnbd);
+        void follow_border(Image<int> &in, std::size_t width, Motion_detector::Contour &found_contour, const std::size_t i, const std::size_t j, std::size_t i2, std::size_t j2, const int nbd, unsigned int &lnbd);
 
 
 
@@ -135,7 +135,7 @@ namespace motdet
             return false;
         }
 
-        void contour_detection(Image<int> &conts_image, std::vector<Contour> &conts, bool trim_borders)
+        void contour_detection(Image<int> &conts_image, std::vector<Motion_detector::Contour> &conts, bool trim_borders)
         {
             // Topological Structural Analysis of Digitized Binary Images by Border Following.
             // By Suzuki, S. and Abe, K. 1985
@@ -204,7 +204,7 @@ namespace motdet
                     // decide the parent of the current border.
 
                     // Lets start by filling in all the initial data of the contour
-                    Contour found_contour;
+                    Motion_detector::Contour found_contour;
                     found_contour.id = nbd;
                     found_contour.is_hole = (j2 == j+1);
                     found_contour.n_pixels = 1;
@@ -246,7 +246,7 @@ namespace motdet
             }
         }
 
-        void follow_border(Image<int> &in, std::size_t width, Contour &found_contour, const std::size_t i, const std::size_t j, std::size_t i2, std::size_t j2, const int nbd, unsigned int &lnbd)
+        void follow_border(Image<int> &in, std::size_t width, Motion_detector::Contour &found_contour, const std::size_t i, const std::size_t j, std::size_t i2, std::size_t j2, const int nbd, unsigned int &lnbd)
         {
             // (3) From the starting point (i, j), follow the detected border:
             // this is done by the following substeps (3.1) through (3.5).
