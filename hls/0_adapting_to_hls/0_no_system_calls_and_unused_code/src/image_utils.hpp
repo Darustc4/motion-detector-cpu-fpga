@@ -27,34 +27,7 @@ namespace motdet
     {
         namespace detail
         {
-            inline float pi_ = 3.1416; /**< The constant PI. */
-            inline unsigned char n_pixel_neighbor_ = 8; /**< Amount of pixels that surround a given pixel. In this case, 8. */
-
             inline std::array<float, 7> gaussian_kernel_5_({ 0.06136, 0.24477, 0.38775, 0.24477, 0.06136 });
-
-            // 3x3 Horizontal sobel edge detection kernel.
-            inline std::array<char, 9> sobel_h_kernel_3x3_({
-                1,  0, -1,
-                2,  0, -2,
-                1,  0, -1
-            });
-
-            // 3x3 Vertical sobel edge detection kernel.
-            inline std::array<char, 9> sobel_v_kernel_3x3_({
-                1,   2,  1,
-                0,   0,  0,
-               -1,  -2, -1
-            });
-
-            /**
-             * @brief Image kernel function. Find the median of 9 pixels (3x3 kernel).
-             * @tparam IN_T must be a basic type of any bit length.
-             * @tparam OUT_T must be a basic type of same or greater bit length than IN_T.
-             * @param p Set of pixels of type IN_T to process.
-             * @return The pixel from these 9 pixels that represents the median.
-             */
-            template <typename IN_T, typename OUT_T>
-            OUT_T kernel_op_median_3x3_(std::array<IN_T, 9> &p);
 
             /**
              * @brief Image kernel function. Get the Gaussian blur value of a line kernel of length 5.
@@ -67,26 +40,6 @@ namespace motdet
             OUT_T kernel_op_gaussian_5_(const std::array<IN_T, 5> &p);
 
             /**
-             * @brief Image kernel function. Detect horizontal edge value of a 3x3 kernel. The result can be negative.
-             * @tparam IN_T must be a basic type of any bit length.
-             * @tparam OUT_T must be a signed basic type. Minimum 2 bits longer than IN_T.
-             * @param p Set of pixels of type IN_T to process.
-             * @return The value of the horizontal edge.
-             */
-            template <typename IN_T, typename OUT_T>
-            OUT_T kernel_op_sobel_h_3x3_(const std::array<IN_T, 9> &p);
-
-            /**
-             * @brief Image kernel function. Detect vertical edge value of a 3x3 kernel. The result can be negative.
-             * @tparam IN_T must be a basic type of any bit length.
-             * @tparam OUT_T must be a signed basic type. Minimum 2 bits longer than IN_T.
-             * @param p Set of pixels of type IN_T to process.
-             * @return The value of the vertical edge.
-             */
-            template <typename IN_T, typename OUT_T>
-            OUT_T kernel_op_sobel_v_3x3_(const std::array<IN_T, 9> &p);
-
-            /**
              * @brief Image kernel function. Returns 1 if any 1-pixel is in the kernel, else return 0.
              * @tparam IN_T must be a basic type of at least 1 bit (+1 for signed).
              * @tparam OUT_T must be a basic type of at least 1 bit (+1 for signed).
@@ -96,56 +49,6 @@ namespace motdet
              */
             template <typename IN_T, typename OUT_T, std::size_t SIZE_K>
             OUT_T kernel_op_dilation_(const std::array<IN_T, SIZE_K> &p);
-
-            /**
-             * @brief Image kernel function. Returns 0 if a 0-pixel is in the kernel, else return 1.
-             * @tparam IN_T must be a basic type of at least 1 bit (+1 for signed).
-             * @tparam OUT_T must be a basic type of at least 1 bit (+1 for signed).
-             * @tparam SIZE_K is the size of the kernel to use for dilation. Must be powers of odd numbers: 1, 9, 25, 49.
-             * @param p Set of pixels of type IN_T to process.
-             * @return The value of the eroded pixel.
-             */
-            template <typename IN_T, typename OUT_T, std::size_t SIZE_K>
-            OUT_T kernel_op_erosion_(const std::array<IN_T, SIZE_K> &p);
-
-            /**
-             * @brief Fast square root approximation by Jim Ulery.
-             * @details http://www.azillionmonkeys.com/qed/sqroot.html
-             * @param val long integer to square root.
-             * @return The approximation of the square root, no decimals.
-             */
-            inline unsigned long fast_sqrt_(unsigned long val);
-
-            /**
-             * @brief Swaps the value of a and b. Used by pixel_sort().
-             * @tparam IN_T Type of the parameters to swap. Must be a basic type.
-             * @param a Parameter 1 to be swapped.
-             * @param b Parameter 2 to be swapped.
-             */
-            template <typename IN_T>
-            inline void pixel_swap_(IN_T &a, IN_T &b) { IN_T tmp(std::move(a)); a = b; b = tmp; }
-
-            /**
-             * @brief Swaps the value of a and b if a is bigger than b. Used by kernel_median_3x3().
-             * @tparam IN_T Type of the parameters to sort. Must be a basic type.
-             * @param a Parameter 1 to be compared and possibly swapped.
-             * @param b Parameter 2 to be compared and possibly swapped.
-             */
-            template <typename IN_T>
-            inline void pixel_sort_(IN_T &a, IN_T &b) { if (a > b) pixel_swap_<IN_T>(a, b); }
-
-            /**
-             * @brief Apply a generic square kernel to an image.
-             * The kernel is applied by a function that takes all the pixels in and array and outputs the pixel result.
-             * @tparam IN_T must be a basic type of any bit length.
-             * @tparam OUT_T must be a basic type of equal or greater length than IN_T.
-             * @tparam K_SIZE is the size of the kernel to extract around each pixel. Must be powers of odd numbers: 1, 9, 25, 49...
-             * @param in Image to convolute.
-             * @param out Image convoluted with the given kernel operator.
-             * @param kernel_operator Function that receives the values of all the kernel elements and outputs the pixel value.
-             */
-            template<typename IN_T, typename OUT_T, std::size_t K_SIZE>
-            void square_convolution(const Image<IN_T> &in, Image<OUT_T> &out, const std::function<OUT_T(std::array<IN_T, K_SIZE>&)> kernel_operator);
 
             /**
              * @brief Apply a vertical line kernel to an image.
@@ -186,16 +89,6 @@ namespace motdet
         void gaussian_blur_filter(const Image<IN_T> &in, Image<OUT_T> &out);
 
         /**
-         * @brief Apply a 3x3 median filter to an image. Useful for salt&pepper noise.
-         * @tparam IN_T must be a basic type of any length.
-         * @tparam OUT_T must be a basic type of equal or greater length than IN_T.
-         * @param in Grayscale image to process.
-         * @param out Grayscale image with noise removed.
-         */
-        template <typename IN_T, typename OUT_T>
-        void median_filter(const Image<IN_T> &in, Image<OUT_T> &out);
-
-        /**
          * @brief Gets the absolute difference between 2 images (always positive). Useful for motion detection.
          * @tparam IN_T must be a basic type of any length.
          * @tparam OUT_T must be a basic type of equal or greater length than IN_T.
@@ -205,41 +98,6 @@ namespace motdet
          */
         template <typename IN_T, typename OUT_T>
         void image_subtraction(const Image<IN_T> &in1, const Image<IN_T> &in2, Image<OUT_T> &out);
-
-        /**
-         * @brief Edge detection that produces a strictly binary image. 0 for no edge, 1 for edge.
-         * @details https://towardsdatascience.com/canny-edge-detection-step-by-step-in-python-computer-vision-b49c3a2d8123
-         * @tparam OUT_T must be a basic type of at least 1 bit.
-         * @param in 8b grayscale image to process.
-         * @param out Binary image of the edges. 1 = edge, 0 = no edge.
-         * @param low_threshold Edges with strength below this value are ignored.
-         * @param high_threshold Edges above this strength value are assured to appear in the final result. Strong edges.
-         */
-        template <typename OUT_T>
-        void canny_edge_detection_8b(const Image<unsigned char> &in, Image<OUT_T> &out, const unsigned char low_threshold, const unsigned char high_threshold);
-
-
-        /**
-         * @brief Detect edges with magnitude (strength) and gradient (direction) in a grayscale picture.¡
-         * @tparam OUT_T must be a basic type of equal or greater length than IN_T.
-         * @param in 8b grayscale image to process.
-         * @param out_magnitude Grayscale image where a higer value means stronger edge.
-         * @param out_gradient Grayscale image with the direction of the edges. 0 is 0 deg, 255 is 360 deg, it prioritizes memory efficiency to precision.
-         */
-        template<typename OUT_T>
-        void sobel_edge_detection_8b(const Image<unsigned char> &in, Image<OUT_T> &out_magnitude, Image<unsigned char> &out_gradient);
-
-
-        /**
-         * @brief Reduces thickness of sobel edges in an image by removing non-essential points, picked out by edge direction analysis.
-         * @tparam IN_T must be a basic type of any bit length.
-         * @tparam OUT_T must be a basic type of equal or greater length than IN_T.
-         * @param in_magnitude Edges grayscale image, like the ones outputted by sobel_edge_detection().
-         * @param in_gradient Grayscale image where 0 means 0 degrees and 255 means 360 degree direction.
-         * @param out Grayscale image with reduces edge thickness.
-         */
-        template<typename IN_T, typename OUT_T>
-        void non_max_suppression(const Image<IN_T> &in_magnitude, const Image<unsigned char> &in_gradient, Image<OUT_T> &out);
 
         /**
          * @brief Collapses all the values in a grayscale image to the states Culled 0, Strong 1 and Weak 2 depending on 2 thresholds.
@@ -298,27 +156,6 @@ namespace motdet
         void dilation(const Image<IN_T> &in, Image<OUT_T> &out);
 
         /**
-         * @brief Takes a binary image (0 or 1) and erodes the 1-pixels. It interprets any value above 1 as 1. Below 0 is 0.
-         * @tparam IN_T must be a basic type of at least 1 bit (+1 for signed).
-         * @tparam OUT_T must be a basic type of at least 1 bit (+1 for signed).
-         * @param in Binary image to process.
-         * @param out Eroded binary image.
-         */
-        template <typename IN_T, typename OUT_T>
-        void erosion(const Image<IN_T> &in, Image<OUT_T> &out);
-
-        /**
-         * @brief Turn an image that only contains the values 0 and 1 to an image that only contains the values 0 and max_val.
-         * @tparam IN_T must be a basic type of any bit length.
-         * @tparam OUT_T must be a basic type of any bit length.
-         * @param in Image that only contains the values 0 and 1. A value below 0 is considered 0 and above 1 is considered 1.
-         * @param out Image with all the 1s in the input image turned to max_val.
-         * @param max_val The value that will represent 1 in the output image.
-         */
-        template<typename IN_T, typename OUT_T>
-        void reescale_pix_length(const Image<IN_T> &in, Image<OUT_T> &out, IN_T in_max_val, OUT_T out_max_val);
-
-        /**
          * @brief Resizes to a lower resolution by a given factor. Ignores floating point precision.
          * @tparam IN_T must be a basic type of any bit length.
          * @tparam OUT_T must be a basic type of equal or greater length than IN_T.
@@ -328,17 +165,6 @@ namespace motdet
          */
         template<typename IN_T, typename OUT_T>
         void downsample(const Image<IN_T> &in, Image<OUT_T> &out, std::size_t factor);
-
-        /**
-         * @brief Resizes to a higher resolution by a given factor.
-         * @tparam IN_T must be a basic type of any bit length.
-         * @tparam OUT_T must be a basic type of equal or greater length than IN_T.
-         * @param in Image to resize, can have any resolution.
-         * @param out Resized image. Resolution must be in.w*factor by in.h*factor
-         * @param factor Factor to resize the image, must be > 0.
-         */
-        template<typename IN_T, typename OUT_T>
-        void upsample(const Image<IN_T> &in, Image<OUT_T> &out, std::size_t factor);
 
         // Include the file with the actual definitions for the headers we have declared above.
         #include "image_utils.ipp"

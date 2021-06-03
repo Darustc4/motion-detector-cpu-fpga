@@ -57,3 +57,22 @@ if(BUILD_TEST)
     target_compile_options(test_exec PRIVATE -Werror -pedantic)
     target_compile_features(test_exec PRIVATE cxx_std_17)
 endif()
+
+if (UNIX)
+    # To install a library in linux it is required to install both the .so files in /lib and the headers in /include
+    # Once we do this, the library can be used (shared) by any other project run on the system, very convenient.
+    # To make this even more convenient to use, we will also create a package so you can do -lmotion_detector when using g++
+
+    # Define GNU standard installation directories
+    include(GNUInstallDirs)
+
+    # Install libs and includes
+    install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+    # Create package so that it can included easily by other projects. This requires a file named "motion_detector.pc.in" to exist
+    # All the package info will be stored in there.
+    configure_file(motion_detector.pc.in motion_detector.pc @ONLY)
+    install(FILES ${CMAKE_BINARY_DIR}/motion_detector.pc DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig)
+else()
+    message(STATUS ">>> Not UNIX/Linux OS detected, installing motion_detector automatically is not contemplated for this OS, please install the generated files as needed.")
+endif()

@@ -15,10 +15,8 @@ namespace test
         bool test_image_getset();
 
         bool test_motion_detector_constructor();
-        bool test_motion_detector_getset();
         bool test_motion_detector_detect_motion();
 
-        bool test_rgb_to_bw();
         bool test_uchar_to_bw();
     } // namespace image_utils
 } // namespace test

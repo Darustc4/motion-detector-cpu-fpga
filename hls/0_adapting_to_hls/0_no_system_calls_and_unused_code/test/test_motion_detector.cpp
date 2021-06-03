@@ -17,10 +17,8 @@ namespace test
             log_test_result(test_image_getset(), "Image getter and setter");
 
             log_test_result(test_motion_detector_constructor(), "Motion_detector constructor");
-            log_test_result(test_motion_detector_getset(), "Motion_detector getter and setter");
             log_test_result(test_motion_detector_detect_motion(), "Motion_detector detect_motion");
 
-            log_test_result(test_rgb_to_bw(), "RGB to BW");
             log_test_result(test_uchar_to_bw(), "uchar to BW");
 
             std::cout << "Finished tests for module motion_detector." << std::endl << std::endl;
@@ -323,39 +321,14 @@ namespace test
         bool test_motion_detector_constructor()
         {
             motdet::Motion_detector motdet0(10, 15);
-
-            bool test_motdet0_width = motdet0.get_width() == 10;
-            CHECK_TRUE(test_motdet0_width);
-            bool test_motdet0_height = motdet0.get_height() == 15;
-            CHECK_TRUE(test_motdet0_height);
-            bool test_motdet0_total = motdet0.get_total() == 150;
-            CHECK_TRUE(test_motdet0_total);
-            bool test_motdet0_max_task_queue_size = motdet0.get_max_task_queue_size() == 2;
-            CHECK_TRUE(test_motdet0_max_task_queue_size);
-            bool test_motdet0_task_queue_size = motdet0.get_task_queue_size() == 0;
-            CHECK_TRUE(test_motdet0_task_queue_size);
-            bool test_motdet0_result_queue_size = motdet0.get_result_queue_size() == 0;
-            CHECK_TRUE(test_motdet0_result_queue_size);
-
-            bool test_motdet0 = test_motdet0_width && test_motdet0_height && test_motdet0_total && test_motdet0_max_task_queue_size && test_motdet0_task_queue_size && test_motdet0_result_queue_size;
-
-            motdet::Motion_detector motdet1(15, 10, 16, 4, 2, 0.002);
-
-            bool test_motdet1_width = motdet1.get_width() == 15;
-            CHECK_TRUE(test_motdet1_width);
-            bool test_motdet1_height = motdet1.get_height() == 10;
-            CHECK_TRUE(test_motdet1_height);
-            bool test_motdet1_total = motdet1.get_total() == 150;
-            CHECK_TRUE(test_motdet1_total);
-
-            bool test_motdet1 = test_motdet1_width && test_motdet1_height && test_motdet1_total;
+            motdet::Motion_detector motdet1(15, 10, 2, 0.002);
 
             // Check exceptions
 
             bool test_exc0 = false;
             try
             {
-                motdet::Motion_detector motdet(3, 10, 16, 4, 2, 0.002);
+                motdet::Motion_detector motdet(3, 10, 2, 0.002);
             }
             catch(const std::invalid_argument &e)
             {
@@ -366,7 +339,7 @@ namespace test
             bool test_exc1 = false;
             try
             {
-                motdet::Motion_detector motdet(22, 9, 16, 4, 2, 0.002);
+                motdet::Motion_detector motdet(22, 9, 2, 0.002);
             }
             catch(const std::invalid_argument &e)
             {
@@ -374,10 +347,11 @@ namespace test
             }
             CHECK_TRUE(test_exc1);
 
+
             bool test_exc2 = false;
             try
             {
-                motdet::Motion_detector motdet(30, 10, 0, 4, 2, 0.002);
+                motdet::Motion_detector motdet(30, 10, 0, 0.002);
             }
             catch(const std::invalid_argument &e)
             {
@@ -385,78 +359,14 @@ namespace test
             }
             CHECK_TRUE(test_exc2);
 
-            bool test_exc3 = false;
-            try
-            {
-                motdet::Motion_detector motdet(30, 10, 1, 0, 2, 0.002);
-            }
-            catch(const std::invalid_argument &e)
-            {
-                test_exc3 = true;
-            }
-            CHECK_TRUE(test_exc3);
+            bool test_exc = test_exc0 && test_exc1 && test_exc2;
 
-            bool test_exc4 = false;
-            try
-            {
-                motdet::Motion_detector motdet(30, 10, 1, 1, 0, 0.002);
-            }
-            catch(const std::invalid_argument &e)
-            {
-                test_exc4 = true;
-            }
-            CHECK_TRUE(test_exc4);
-
-            bool test_exc = test_exc0 && test_exc1 && test_exc2 && test_exc3 && test_exc4;
-
-            return test_motdet0 && test_motdet1 && test_exc;
-        }
-
-        bool test_motion_detector_getset()
-        {
-            motdet::Motion_detector motdet0(10, 15);
-
-            bool test_motdet0_width = motdet0.get_width() == 10;
-            CHECK_TRUE(test_motdet0_width);
-            bool test_motdet0_height = motdet0.get_height() == 15;
-            CHECK_TRUE(test_motdet0_height);
-            bool test_motdet0_total = motdet0.get_total() == 150;
-            CHECK_TRUE(test_motdet0_total);
-            bool test_motdet0_max_task_queue_size = motdet0.get_max_task_queue_size() == 2;
-            CHECK_TRUE(test_motdet0_max_task_queue_size);
-            bool test_motdet0_task_queue_size = motdet0.get_task_queue_size() == 0;
-            CHECK_TRUE(test_motdet0_task_queue_size);
-            bool test_motdet0_result_queue_size = motdet0.get_result_queue_size() == 0;
-            CHECK_TRUE(test_motdet0_result_queue_size);
-
-            bool test_motdet0 = test_motdet0_width && test_motdet0_height && test_motdet0_total && test_motdet0_max_task_queue_size && test_motdet0_task_queue_size && test_motdet0_result_queue_size;
-
-            motdet::Motion_detector motdet1(500, 500, 1, 4);
-            bool test_motdet1_max_task_queue_size = motdet1.get_max_task_queue_size() == 4;
-            CHECK_TRUE(test_motdet1_max_task_queue_size);
-
-            for(int i = 0; i < 4; ++i)
-            {
-                auto img = std::make_unique<motdet::Image<unsigned short>>(500, 500, 13000);
-                motdet1.enqueue_frame(std::move(img), i, true);
-            }
-
-            // This test relies on the fact that it will take at least a few millis to process
-            // a 500x500 image, not 100% reliable but close enough.
-            bool test_motdet1_task_queue_size = motdet1.get_task_queue_size() == 4;
-            CHECK_TRUE(test_motdet1_task_queue_size);
-
-            while(motdet1.get_result_queue_size() != 4){};
-            bool test_motdet1_result_queue_size = true;
-
-            bool test_motdet1 = test_motdet1_max_task_queue_size && test_motdet1_task_queue_size && test_motdet1_result_queue_size;
-
-            return test_motdet0 && test_motdet1;
+            return test_exc;
         }
 
         bool test_motion_detector_detect_motion()
         {
-            motdet::Motion_detector motdet0(15, 15, 1, 3);
+            motdet::Motion_detector motdet0(15, 15);
 
             std::vector<unsigned short> data0_in0 = {
              0,     0,     0, 13000, 13000, 13000, 13000, 13000, 13000, 13000, 13000,     0,     0,     0,     0,
@@ -512,131 +422,40 @@ namespace test
              0,     0,     0, 13000, 13000, 13000,     0,     0,     0,     0, 13000, 13000, 13000, 13000,     0
             };
 
-            auto img0_in0 = std::make_unique<motdet::Image<unsigned short>>(data0_in0, 15);
-            auto img0_in1 = std::make_unique<motdet::Image<unsigned short>>(data0_in1, 15);
-            auto img0_in2 = std::make_unique<motdet::Image<unsigned short>>(data0_in2, 15);
+            motdet::Image<unsigned short> img0_in0(data0_in0, 15);
+            motdet::Image<unsigned short> img0_in1(data0_in1, 15);
+            motdet::Image<unsigned short> img0_in2(data0_in2, 15);
+
 
             motdet::Motion_detector::Detection cnt0_out0, cnt0_out1, cnt0_out2;
-            motdet0.enqueue_frame(std::move(img0_in0), 0, true);
-            motdet0.enqueue_frame(std::move(img0_in1), 1, true);
-            motdet0.enqueue_frame(std::move(img0_in2), 2, true);
 
-            cnt0_out0 = motdet0.get_detection(true);
+            cnt0_out0 = motdet0.detect_motion(img0_in0);
             bool test_motdet0_detection0 = !cnt0_out0.has_detections;
-            cnt0_out1 = motdet0.get_detection(true);
+            cnt0_out1 = motdet0.detect_motion(img0_in1);
             bool test_motdet0_detection1 = cnt0_out1.has_detections;
-            cnt0_out2 = motdet0.get_detection(true);
+            cnt0_out2 = motdet0.detect_motion(img0_in2);
             bool test_motdet0_detection2 = !cnt0_out2.has_detections;
 
             bool test_motdet0_detection = test_motdet0_detection0 && test_motdet0_detection1 && test_motdet0_detection2;
 
             // Test exceptions
 
-            bool test_exc0 = false;
-            try
-            {
-                motdet::Motion_detector motdetexc(15, 15, 1, 2);
-
-                auto img0_in0 = std::make_unique<motdet::Image<unsigned short>>(data0_in0, 15);
-                auto img0_in1 = std::make_unique<motdet::Image<unsigned short>>(data0_in1, 15);
-                auto img0_in2 = std::make_unique<motdet::Image<unsigned short>>(data0_in2, 15);
-
-                motdetexc.enqueue_frame(std::move(img0_in0), 0, false);
-                motdetexc.enqueue_frame(std::move(img0_in1), 1, false);
-                motdetexc.enqueue_frame(std::move(img0_in2), 2, false);
-            }
-            catch(const std::runtime_error &e)
-            {
-                test_exc0 = true;
-            }
-            CHECK_TRUE(test_exc0);
-
-            bool test_exc1 = false;
-            try
-            {
-                motdet::Motion_detector motdetexc(15, 15, 1, 2);
-
-                auto img0_in0 = std::make_unique<motdet::Image<unsigned short>>(data0_in0, 15);
-                auto img0_in1 = std::make_unique<motdet::Image<unsigned short>>(data0_in1, 15);
-                auto img0_in2 = std::make_unique<motdet::Image<unsigned short>>(data0_in2, 15);
-
-                motdetexc.enqueue_frame(std::move(img0_in0), 0, true);
-                motdetexc.enqueue_frame(std::move(img0_in1), 1, true);
-                motdetexc.enqueue_frame(std::move(img0_in2), 0, true);
-            }
-            catch(const std::invalid_argument &e)
-            {
-                test_exc1 = true;
-            }
-            CHECK_TRUE(test_exc1);
-
-            bool test_exc2 = false;
+            bool test_exc = false;
             try
             {
                 motdet::Motion_detector motdetexc(10, 10, 1, 2);
 
-                auto img0_in0 = std::make_unique<motdet::Image<unsigned short>>(data0_in0, 15);
+                motdet::Image<unsigned short> img0_in0(data0_in0, 15);
 
-                motdetexc.enqueue_frame(std::move(img0_in0), 0, true);
+                motdetexc.detect_motion(img0_in0);
             }
             catch(const std::invalid_argument &e)
             {
-                test_exc2 = true;
+                test_exc = true;
             }
-            CHECK_TRUE(test_exc2);
-
-            bool test_exc3 = false;
-            try
-            {
-                motdet::Motion_detector motdetexc(10, 10, 1, 2);
-                motdetexc.get_detection(false);
-            }
-            catch(const std::runtime_error &e)
-            {
-                test_exc3 = true;
-            }
-            CHECK_TRUE(test_exc3);
-
-            bool test_exc = test_exc0 && test_exc1 && test_exc2 && test_exc3;
+            CHECK_TRUE(test_exc);
 
             return test_motdet0_detection && test_exc;
-        }
-
-        bool test_rgb_to_bw()
-        {
-            std::vector<motdet::rgb_pixel> data0_in = {
-             {  0, 255,   0}, {  0,   0,   0}, {  0, 255, 255},
-             {  0,   0,   0}, {255, 255,   0}, {  0, 255, 255},
-             {  0, 255, 255}, {255, 255, 255}, {255, 255, 255},
-             {  0, 255, 255}, {  0,   0,   0}, {255, 255, 255},
-             {255, 255,   0}, {  0,   0,   0}, {255, 255, 255},
-             {255, 255,   0}, {  0,   0,   0}, {255, 255, 255},
-             {255, 255,   0}, {  0,   0, 255}, {255,   0,   0},
-             {  0, 255, 200}, {255, 255, 255}, {  0,   0,   0},
-             {  0,   0,   0}, {  0,   0,   0}, {  0,   0, 255}
-            };
-
-            std::vector<unsigned short> data0_expected = {
-             38169,     0, 45582,
-                 0, 57612, 45582,
-             45582, 65025, 65025,
-             45582,     0, 65025,
-             57612,     0, 65025,
-             57612,     0, 65025,
-             57612,  7412, 19442,
-             43983, 65025,     0,
-                 0,     0,  7412
-            };
-
-            motdet::Image<motdet::rgb_pixel> img0_in(data0_in, 3);
-            motdet::Image<unsigned short> img0_out(3, 9, 0), img0_expected(data0_expected, 3);
-
-            motdet::rgb_to_bw(img0_in, img0_out);
-
-            bool test_img0 = test_compare_vectors<unsigned short, unsigned short>(img0_out.get_data(),img0_expected.get_data());
-            CHECK_TRUE(test_img0);
-
-            return test_img0;
         }
 
         bool test_uchar_to_bw()

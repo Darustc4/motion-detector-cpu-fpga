@@ -2,43 +2,10 @@
 namespace detail
 {
     template <typename IN_T, typename OUT_T>
-    OUT_T kernel_op_median_3x3_(std::array<IN_T, 9> &p)
-    {
-        // This is the fastest known algorithm without making assumptions about the input.
-        // "Borrowed" from http://ndevilla.free.fr/median/median.pdf
-
-        pixel_sort_<IN_T>(p[1],p[2]); pixel_sort_<IN_T>(p[4],p[5]); pixel_sort_<IN_T>(p[7],p[8]);
-        pixel_sort_<IN_T>(p[0],p[1]); pixel_sort_<IN_T>(p[3],p[4]); pixel_sort_<IN_T>(p[6],p[7]);
-        pixel_sort_<IN_T>(p[1],p[2]); pixel_sort_<IN_T>(p[4],p[5]); pixel_sort_<IN_T>(p[7],p[8]);
-        pixel_sort_<IN_T>(p[0],p[3]); pixel_sort_<IN_T>(p[5],p[8]); pixel_sort_<IN_T>(p[4],p[7]);
-        pixel_sort_<IN_T>(p[3],p[6]); pixel_sort_<IN_T>(p[1],p[4]); pixel_sort_<IN_T>(p[2],p[5]);
-        pixel_sort_<IN_T>(p[4],p[7]); pixel_sort_<IN_T>(p[4],p[2]); pixel_sort_<IN_T>(p[6],p[4]);
-        pixel_sort_<IN_T>(p[4],p[2]);
-
-        return(p[4]);
-    }
-
-    template <typename IN_T, typename OUT_T>
     OUT_T kernel_op_gaussian_5_(const std::array<IN_T, 5> &p)
     {
         double total = 0;
         for(std::size_t i = 0; i < 5; ++i) total += p[i] * gaussian_kernel_5_[i];
-        return total;
-    }
-
-    template <typename IN_T, typename OUT_T>
-    OUT_T kernel_op_sobel_h_3x3_(const std::array<IN_T, 9> &p)
-    {
-        OUT_T total = 0;
-        for(std::size_t i = 0; i < 9; ++i) total += p[i] * sobel_h_kernel_3x3_[i];
-        return total;
-    }
-
-    template <typename IN_T, typename OUT_T>
-    OUT_T kernel_op_sobel_v_3x3_(const std::array<IN_T, 9> &p)
-    {
-        OUT_T total = 0;
-        for(std::size_t i = 0; i < 9; ++i) total += p[i] * sobel_v_kernel_3x3_[i];
         return total;
     }
 
@@ -50,77 +17,6 @@ namespace detail
             if (i >= 1) return 1;
         }
         return 0;
-    }
-
-    template <typename IN_T, typename OUT_T, std::size_t SIZE_K>
-    OUT_T kernel_op_erosion_(const std::array<IN_T, SIZE_K> &p)
-    {
-        for(const IN_T &i: p)
-        {
-            if (i <= 0) return 0;
-        }
-        return 1;
-    }
-
-
-    inline unsigned long fast_sqrt_(unsigned long val)
-    {
-        unsigned long temp, g = 0, b = 0x8000, bshft = 15;
-
-        do
-        {
-            if (val >= (temp = (((g << 1) + b)<<bshft--)))
-            {
-                g += b;
-                val -= temp;
-            }
-        }
-        while (b >>= 1);
-
-        return g;
-    }
-
-    template<typename IN_T, typename OUT_T, std::size_t K_SIZE>
-    void square_convolution(const Image<IN_T> &in, Image<OUT_T> &out, const std::function<OUT_T(std::array<IN_T, K_SIZE>&)> kernel_operator)
-    {
-        std::size_t current_pos;
-        std::size_t height = in.get_height(), width = in.get_width();
-        int kernel_side, kernel_radius;
-
-        kernel_side = detail::fast_sqrt_(K_SIZE); // Since a kernel is strictly square, the square root is the side length.
-        if(kernel_side == 0 || kernel_side % 2 == 0) throw std::invalid_argument("Kernel is of invalid size.");
-
-        kernel_radius = kernel_side >> 1;
-
-        std::array<IN_T, K_SIZE> extracted_kernel;
-
-        for(std::size_t i = 0; i < height; ++i)
-        {
-            for(std::size_t j = 0; j < width; ++j)
-            {
-                current_pos = i * width + j;
-
-                for(int ki = -kernel_radius; ki <= kernel_radius; ++ki)
-                {
-                    for(int kj = -kernel_radius; kj <= kernel_radius; ++kj)
-                    {
-                        int real_ki = i + ki;
-                        int real_kj = j + kj;
-
-                        if(real_ki < 0) real_ki = 0;
-                        else if (real_ki >= height) real_ki = height-1;
-
-                        if(real_kj < 0) real_kj = 0;
-                        else if (real_kj >= width) real_kj = width-1;
-
-                        // Fill in the kernel that will be passed to the function with the values extracted from the image.
-                        extracted_kernel[(ki + kernel_radius)*kernel_side + kj + kernel_radius] = in[real_ki*width + real_kj];
-                    }
-                }
-                // The kernel has been fully extracted, time to execute kernel operation.
-                out[current_pos] = kernel_operator(extracted_kernel);
-            }
-        }
     }
 
     template<typename IN_T, typename OUT_T, std::size_t K_SIZE>
@@ -209,12 +105,6 @@ void gaussian_blur_filter(const Image<IN_T> &in, Image<OUT_T> &out)
 }
 
 template <typename IN_T, typename OUT_T>
-void median_filter(const Image<IN_T> &in, Image<OUT_T> &out)
-{
-    detail::square_convolution<IN_T, OUT_T, 9>(in, out, detail::kernel_op_median_3x3_<IN_T, OUT_T>);
-}
-
-template <typename IN_T, typename OUT_T>
 void image_subtraction(const Image<IN_T> &in1, const Image<IN_T> &in2, Image<OUT_T> &out)
 {
     std::size_t total = in1.get_total();
@@ -223,100 +113,6 @@ void image_subtraction(const Image<IN_T> &in1, const Image<IN_T> &in2, Image<OUT
     {
         if(in1[i] > in2[i]) out[i] = in1[i] - in2[i];
         else                out[i] = in2[i] - in1[i];
-    }
-}
-
-template <typename OUT_T>
-void canny_edge_detection_8b(const Image<unsigned char> &in, Image<OUT_T> &out, const unsigned char low_threshold, const unsigned char high_threshold)
-{
-    std::size_t height = in.get_height(), width = in.get_width();
-
-    Image<unsigned char> gra_image(width, height, {}), thresh_image(width, height, {}), mag_image(width, height, {}), sup_image(width, height, {});
-
-    sobel_edge_detection_8b<unsigned char>           (in, mag_image, gra_image                                                            );
-    non_max_suppression<unsigned char, unsigned char>(    mag_image, gra_image, sup_image                                                 );
-    double_threshold<unsigned char, unsigned char>   (                          sup_image, thresh_image,     low_threshold, high_threshold);
-    hysteresis<unsigned char, OUT_T>                 (                                     thresh_image, out                              );
-}
-
-template<typename OUT_T>
-void sobel_edge_detection_8b(const Image<unsigned char> &in, Image<OUT_T> &out_magnitude, Image<unsigned char> &out_gradient)
-{
-    short aux_mag; // input is 8b and we need a signed type of 10b. Closest candidate is short.
-    double aux_gra;
-
-    std::size_t height = in.get_height(), width = in.get_width(), total = in.get_total();
-    Image<short> sobel_h(width, height, {}), sobel_v(width, height, {});
-
-    detail::square_convolution<unsigned char, short, 9>(in, sobel_h, detail::kernel_op_sobel_h_3x3_<unsigned char, short>);
-    detail::square_convolution<unsigned char, short, 9>(in, sobel_v, detail::kernel_op_sobel_v_3x3_<unsigned char, short>);
-
-    for(std::size_t i = 0; i < total; ++i)
-    {
-        aux_mag = detail::fast_sqrt_(sobel_h[i] * sobel_h[i] + sobel_v[i] * sobel_v[i]);
-
-        // Intensity of the edge from 0 (B) to 255 (W)
-        out_magnitude[i] = aux_mag > 255 ? 255 : aux_mag;
-
-        // Angle of the edge in radians. Returns the angle of radians from origin (0, 0) to point (sobel_h[i], sobel_v[i])
-        aux_gra = atan2(sobel_h[i], sobel_v[i]);
-
-        // Convert rad to deg: degrees = radians * 180 * PI
-        // To map from 360 deg range to 255 deg, multiply by 0.71: degrees = radians * 127.8 * PI
-        // Fuse that number with PI and the final instruction is: degrees = radians * 401.45
-        out_gradient[i] = aux_gra * 401.45;
-    }
-}
-
-template<typename IN_T, typename OUT_T>
-void non_max_suppression(const Image<IN_T> &in_magnitude, const Image<unsigned char> &in_gradient, Image<OUT_T> &out)
-{
-    IN_T q, r;
-    bool valid_pixel;
-    unsigned short deg;
-    std::size_t height = in_magnitude.get_height(), width = in_magnitude.get_width(), current_pos;
-
-    for(std::size_t i = 0; i < height; ++i)
-    {
-        for(std::size_t j = 0; j < width; ++j)
-        {
-            current_pos = i * width + j;
-
-            deg = in_gradient[current_pos] * 1.4; // Map the degrees from 255 back to 360. This is an approximation, but it's good enough.
-            valid_pixel = false;
-
-            if((0 <= deg < 22.5) || (157.5 <= deg <= 180)){ // Angle 0 (-)
-                if(!(j == 0 || j == width-1)){
-                    q = in_magnitude[current_pos+1];
-                    r = in_magnitude[current_pos-1];
-                    valid_pixel = true;
-                }
-            }
-            else if(22.5 <= deg < 67.5){                    // Angle 45 (/)
-                if(!(j == 0 || j == width-1 || i == 0 || i == height-1)){
-                    q = in_magnitude[current_pos+width-1];
-                    r = in_magnitude[current_pos-width+1];
-                    valid_pixel = true;
-                }
-            }
-            else if(67.5 <= deg < 112.5){                   // Angle 90 (|)
-                if(!(i == 0 || i == height-1)){
-                    q = in_magnitude[current_pos+width];
-                    r = in_magnitude[current_pos-width];
-                    valid_pixel = true;
-                }
-            }
-            else if(112.5 <= deg < 157.5){                  // Angle 135 (\)
-                if(!(j == 0 || j == width-1 || i == 0 || i == height-1)){
-                    q = in_magnitude[current_pos-width-1];
-                    r = in_magnitude[current_pos+width+1];
-                    valid_pixel = true;
-                }
-            }
-
-            if(valid_pixel && in_magnitude[current_pos] >= q && in_magnitude[current_pos] >= r) out[current_pos] = in_magnitude[current_pos];
-            else out[current_pos] = 0;
-        }
     }
 }
 
@@ -416,27 +212,6 @@ void dilation(const Image<IN_T> &in, Image<OUT_T> &out)
 
     detail::vline_convolution<IN_T, IN_T, 3>(in, half_dilated, detail::kernel_op_dilation_<IN_T, IN_T, 3>);
     detail::hline_convolution<IN_T, OUT_T, 3>(half_dilated, out, detail::kernel_op_dilation_<IN_T, OUT_T, 3>);
-}
-
-template <typename IN_T, typename OUT_T>
-void erosion(const Image<IN_T> &in, Image<OUT_T> &out)
-{
-    std::size_t height = in.get_height(), width = in.get_width();
-    Image<IN_T> half_eroded(width, height, {});
-
-    detail::vline_convolution<IN_T, IN_T, 3>(in, half_eroded, detail::kernel_op_erosion_<IN_T, IN_T, 3>);
-    detail::hline_convolution<IN_T, OUT_T, 3>(half_eroded, out, detail::kernel_op_erosion_<IN_T, OUT_T, 3>);
-}
-
-template<typename IN_T, typename OUT_T>
-void reescale_pix_length(const Image<IN_T> &in, Image<OUT_T> &out, IN_T in_max_val, OUT_T out_max_val)
-{
-    std::size_t total = out.get_total();
-
-    double slope = (double)out_max_val/(double)in_max_val;
-
-    for(std::size_t i = 0; i < total; ++i)
-    { out[i] = ((float)in[i])*slope; }
 }
 
 
@@ -541,32 +316,6 @@ void downsample(const Image<IN_T> &in, Image<OUT_T> &out, std::size_t factor)
             }
 
             out[(out_height-1)*out_width + out_width - 1] = sampler_accumulator / sampler_divisor_excesswh;
-        }
-    }
-}
-
-
-template<typename IN_T, typename OUT_T>
-void upsample(const Image<IN_T> &in, Image<OUT_T> &out, std::size_t factor)
-{
-    std::size_t in_height = in.get_height(), in_width = in.get_width();
-    std::size_t out_height = out.get_height(), out_width = out.get_width();
-
-    for(std::size_t i = 0; i < in_height; ++i)
-    {
-        std::size_t scaled_i = i*factor;
-        for(std::size_t j = 0; j < in_width; ++j)
-        {
-            std::size_t scaled_pos = scaled_i*out_width + j*factor;
-            IN_T val = in[i*in_width + j];
-            for(std::size_t box_i = 0; box_i < factor; ++box_i)
-            {
-                std::size_t box_i_dis = box_i*out_width;
-                for(std::size_t box_j = 0; box_j < factor; ++box_j)
-                {
-                    out[scaled_pos + box_i_dis + box_j] = val;
-                }
-            }
         }
     }
 }
