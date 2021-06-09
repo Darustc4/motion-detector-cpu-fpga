@@ -27,17 +27,13 @@ int main(int argc, char** argv)
         "ERROR: Missing parameters" << std::endl <<
         "Specify the following parameters: " << std::endl <<
         " - input: Either 'camera' which will capture from connected USB cam or a path to a .mp4" << std::endl <<
-        " - output: Folder to store captured video in. Will create .mp4 files with date when motion is detected. NOTE: All files are deleted in the directory." << std::endl <<
-        " [OPTIONAL] - downscale factor : Resolution reductor for input video, 4 is fastest while still working. 1 is native resolution." << std::endl <<
-        " [OPTIONAL] - display stats : Print timing stats. 1 for true, 0 for false" << std::endl;
+        " - output: Folder to store captured video in. Will create .mp4 files with date when motion is detected. NOTE: All files are deleted in the directory." << std::endl;
 
         return 0;
     }
 
     std::string in_source;
     std::string out_dir;
-    unsigned int reduction_factor = 1;
-    bool display_stats = false;
 
     // Get input source
     in_source = argv[1];
@@ -51,14 +47,6 @@ int main(int argc, char** argv)
     fs::path out_recordings_dir(out_dir);
     if(!fs::exists(out_recordings_dir)) throw std::invalid_argument("The selected output directory is not accessible or does not exist.");
     fs::remove_all(out_recordings_dir / "*");   // Clear the output directory.
-
-    // Get reduction factor
-    try { if(argc >= 4) reduction_factor = std::abs(std::stoi(argv[3])); }
-    catch(const std::exception &e) { throw std::invalid_argument("The reduction factor must be a number."); }
-    if(reduction_factor == 0) throw std::invalid_argument("The reduction factor must be at least 1");
-
-    // Get display stats
-    if(argc >= 5) display_stats = std::stoi(argv[4]) == 1 ? true : false;
 
     // At this point, all input parameters have been validated and stored.
 
@@ -90,7 +78,7 @@ int main(int argc, char** argv)
     cv::Size stream_res = cv::Size(width, height);
 
     // Create the Motion detector object from the library.
-    md::Motion_detector motion_detector(width, height, reduction_factor);
+    md::Motion_detector motion_detector(0.0067);
 
     // We will record for a few extra seconds after motion is no longer detected to avoid videos turnign off and on intermittently.
     unsigned long long millis_keep_recording = 3000;
@@ -99,11 +87,11 @@ int main(int argc, char** argv)
     unsigned int recordings_counter = 0; // We will create a separate video for each time movement is detected, use a counter to sequence videos.
     bool recording = false, first_iteration = true;
 
-    if(display_stats) auto t_video0 = high_resolution_clock::now();
+    auto t_video0 = high_resolution_clock::now();
 
     // Start grabbing frames and checking for motion. Store the captured frame is a OpenCV Matrix (Mat).
 
-    std::vector<motdet::Motion_detector::Contour> contours; // Storage for detected movement across frames.
+    motdet::Motion_detector::Detection contours; // Storage for detected movement across frames.
 
     auto video_procesing_start = high_resolution_clock::now(); // Chrono the time it takes to process the input source.
     while(true)
@@ -126,21 +114,20 @@ int main(int argc, char** argv)
         if(frame.empty() || millis_frame < millis_prev_frame) break; // End of input video.
 
         // Turn the captured frame from RGB to grayscale.
-        md::Image<unsigned short> grayscale_input_frame(width, height, 0);
+        md::Image<unsigned short, md::original_total> grayscale_input_frame(md::original_width);
         unsigned char *rgb_data = (unsigned char *)frame.data;
 
         md::uchar_to_bw(rgb_data, frame.total(), grayscale_input_frame);
 
-        md::Motion_detector::Detection detected_result = motion_detector.detect_motion(grayscale_input_frame);
+        md::Motion_detector::Detection detected_result;
+        motion_detector.detect_motion(grayscale_input_frame, detected_result);
 
         // Process the detected movement contours. Start or stop recording accordingly.
 
         if(recording) std::cout << "[REC] ";
-        std::cout << "Got results for " << millis_frame << ".";
-        if(display_stats) std::cout << " | Processing time: " << detected_result.processing_time << " milliseconds." << std::endl;
-        else std::cout << std::endl;
+        std::cout << "Got results for " << millis_frame << "." << std::endl;
 
-        if(detected_result.has_detections)
+        if(detected_result.detection_count > 0)
         {
             if(!recording)
             {
@@ -154,7 +141,7 @@ int main(int argc, char** argv)
             }
 
             millis_last_movement = millis_frame;
-            contours = detected_result.detection_contours;
+            contours = detected_result;
             recording = true;
         }
         else
@@ -166,7 +153,7 @@ int main(int argc, char** argv)
                 std::cout << "No motion detected. Closing recording " << recordings_counter << std::endl;
                 ++recordings_counter;
 
-                contours.clear();
+                contours.detection_count = 0;
                 recording = false;
                 writer.release();
             }
@@ -175,8 +162,9 @@ int main(int argc, char** argv)
         if(recording)
         {
             // Draw the detected motion onto the recovered frame as rectangles.
-            for(md::Motion_detector::Contour &cont : contours)
+            for(std::size_t i = 0; i < contours.detection_count; ++i)
             {
+                md::Motion_detector::Contour &cont = contours.detections[i];
                 // Draw the detected movement on screen
 
                 cv::Point pt1(cont.bb_tl_x, cont.bb_tl_y);
@@ -190,15 +178,7 @@ int main(int argc, char** argv)
 
     }
 
-    if(display_stats)
-    {
-        auto video_procesing_end = high_resolution_clock::now();
-        std::cout << "Processed video in " << duration_cast<milliseconds>(video_procesing_end - video_procesing_start).count() << " millis " << std::endl;
-    }
-    else
-    {
-        std::cout << "Finished processing video, exiting..." << std::endl;
-    }
-
+    auto video_procesing_end = high_resolution_clock::now();
+    std::cout << "Processed video in " << duration_cast<milliseconds>(video_procesing_end - video_procesing_start).count() << " millis " << std::endl;
     return 0;
 }

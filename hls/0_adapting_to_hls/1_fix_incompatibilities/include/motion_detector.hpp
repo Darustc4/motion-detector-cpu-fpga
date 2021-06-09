@@ -1,142 +1,171 @@
 #ifndef __MOTDET_MOTION_DETECTOR_HPP__
 #define __MOTDET_MOTION_DETECTOR_HPP__
 
-#include <iostream>
-#include <cstddef>
-#include <vector>
+#include <cstdint>
+#include <cmath>
+
+// Define the resolution and reduction factor of the motion detector only if not defiend already.
+// This allows compile time flexibility when importing the library not as a package, but as a header to compile.
+
+#ifndef MOTDET_WIDTH
+#define MOTDET_WIDTH 1920
+#endif
+
+#ifndef MOTDET_HEIGHT
+#define MOTDET_HEIGHT 1080
+#endif
+
+#ifndef MOTDET_REDUCTION_FACTOR
+#define MOTDET_REDUCTION_FACTOR 4
+#endif
 
 namespace motdet
 {
+    // Define the original and reduced resolutions, along other global variables to use in the library.
+
+    const uint32_t original_width = MOTDET_WIDTH;
+    const uint32_t original_height = MOTDET_HEIGHT;
+    const uint32_t original_total = MOTDET_WIDTH*MOTDET_HEIGHT;
+
+    const uint32_t motdet_width = std::ceil((float)original_width / MOTDET_REDUCTION_FACTOR);
+    const uint32_t motdet_height = std::ceil((float)original_height / MOTDET_REDUCTION_FACTOR);
+    const uint32_t motdet_total = motdet_width*motdet_height;
+
+    const uint32_t max_contours = 100;
 
     // Class definitions
 
     /**
      * @brief Represents an image (or video frame) as a flat structure.
-     * @tparam T Type of pixel in the image. Cannot be bool, use unsigned char to store boolean values.
+     * @details Will use stack memory if "__SYNTHESIS__" has been defined by the preprocessor. Else use dynamic memory with management.
+     * @tparam T Type of pixel in the image. Cannot be bool, use uchar to store boolean values.
+     * @tparam size Number of pixels to store in image. >0.
      */
-    template <typename T> class Image
+    template <typename T, uint32_t size> class Image
     {
     public:
-        /**
-         * @brief Construct a new Image object with the given width and height. Will fill all the pixels with the default value fill_value.
-         * @param width Length of each row. >0.
-         * @param height Row count. >0.
-         * @param fill_value Value to use as default. Use {} for default initializer.
-         */
-        Image(const std::size_t width, const std::size_t height, const T fill_value):
-            w_(width),
-            h_(height),
-            total_(width*height)
-        {
-            if(w_ == 0) throw std::invalid_argument("ERROR Constructor: width must be >0.");
-            if(h_ == 0) throw std::invalid_argument("ERROR Constructor: height must be >0.");
-            data_.resize(total_, fill_value);
-        };
+
+        Image() = delete;
 
         /**
-         * @brief Construct a new Image object from a given data vector. Each element of the vector represents a pixel.
-         * @param init_data Vector to copy
+         * @brief Construct a new Image object with the given width of each line.
+         * @param width Length of each row. Must be size>=width>0 and size/width must have no remainder.
+         */
+        Image(const uint16_t width):
+#ifndef __SYNTHESIS__
+            data_(new T[size]{}),
+#endif
+            w_(width),
+            h_(size/width)
+        {};
+
+        /**
+         * @brief Construct a new Image object from a given data array. Each element of the array represents a pixel.
+         * @param init_data Array to copy
          * @param width Lenght of each row in the inputted image. >0.
          */
-        Image(const std::vector<T> &init_data, const std::size_t width):
+        Image(const T (&init_data)[size], const uint16_t width):
+#ifndef __SYNTHESIS__
+            data_(new T[size]{}),
+#endif
             w_(width),
-            h_(init_data.size()),
-            total_(init_data.size())
+            h_(size/width)
         {
-            if(w_ == 0) throw std::invalid_argument("ERROR Constructor: width must be >0.");
-            h_ /= width;
-            if(w_*h_ != init_data.size()) throw std::invalid_argument("ERROR Constructor: Invalid width for this vector length.");
-            data_ = init_data;
+            for(uint32_t i = 0; i < size; ++i) data_[i] = init_data[i];
         };
 
-        Image() = default;
-        Image(const Image &other) = default;
-        Image(Image &&other) = default;
+        /**
+         * @brief Copy contructor.
+         */
+        Image(const Image &other)
+#ifndef __SYNTHESIS__
+            :data_(new T[size]{})
+#endif
+        {
+            for(uint32_t i = 0; i < size; ++i) data_[i] = other.data_[i];
+            w_ = other.w_;
+            h_ = other.h_;
+        };
+
+        Image(Image &&other) = delete;
+
+#ifndef __SYNTHESIS__
+        /**
+         * @brief Destroy the Image object. Only done if not synthetizing.
+         */
+        ~Image()
+        {
+            delete[] data_;
+        }
+#endif
 
         // Operator Overload
 
-        Image& operator=(const Image &other) = default;
-        Image& operator=(Image &&other) = default;
+        /**
+         * @brief Copy assignment.
+         * @param other Other image to copy.
+         * @return Image& Returs this object by reference for chaining.
+         */
+        Image& operator=(const Image &other)
+        {
+            for(uint32_t i = 0; i < size; ++i) data_[i] = other.data_[i];
+            w_ = other.w_;
+            h_ = other.h_;
+
+            return *this;
+        };
+
+        Image& operator=(Image &&other) = delete;
 
         /**
          * @brief Returns an immutable T element located at idx.
          * @param idx Index to access.
          * @return Element located at idx.
          */
-        inline const T& operator [](const std::size_t idx) const { return data_[idx]; };
+        inline const T& operator [](const uint32_t idx) const { return data_[idx]; };
 
         /**
          * @brief Returns a mutable T element located at idx.
          * @param idx Index to access.
          * @return Element located at idx.
          */
-        inline T& operator [](const std::size_t idx) { return data_[idx]; };
+        inline T& operator [](const uint32_t idx) { return data_[idx]; };
 
         // Getters and Setters
 
         /**
          * @brief Get the width
-         * @return std::size_t
+         * @return uint16_t
          */
-        inline std::size_t get_width() const  { return w_; };
+        inline uint16_t get_width() const  { return w_; };
 
         /**
          * @brief Get the height
-         * @return std::size_t
+         * @return uint16_t
          */
-        inline std::size_t get_height() const { return h_; };
+        inline uint16_t get_height() const { return h_; };
 
         /**
          * @brief Get the total pixels
-         * @return std::size_t
+         * @return uint32_t
          */
-        inline std::size_t get_total() const  { return total_; };
+        inline uint32_t get_total() const  { return size; };
 
         /**
-         * @brief Get the internal data vector.
-         * @return const std::vector<T>&
+         * @brief Get the internal data array.
+         * @return const T*
          */
-        inline const std::vector<T>& get_data() const { return data_; }
-
-        /**
-         * @brief Set a new value for the internal data vector.
-         * @param data Data vector, must be of the same type as the current one.
-         * @param width Length of each row in the image.
-         * @throw invalid_argument if width == 0 or the given width is not compatible with the given data vector.
-         */
-        inline void set_data(const std::vector<T>& data, const std::size_t width)
-        {
-            if(width == 0) throw std::invalid_argument("ERROR Constructor: width must be >0.");
-            std::size_t height = data.size()/width;
-            if(width*height != data.size()) throw std::invalid_argument("ERROR Constructor: Invalid width for this vector length.");
-
-            w_ = width;
-            h_ = height;
-            total_ = data.size();
-            data_ = data;
-        }
-
-        /**
-         * @brief Set a new value for the internal data vector. But now for rvalues!
-         * @param data Data vector, must be of the same type as the current one.
-         * @param width Length of each row in the image.
-         * @throw invalid_argument if width == 0 or the given width is not compatible with the given data vector.
-         */
-        inline void set_data(std::vector<T>&& data, const std::size_t width)
-        {
-            if(width == 0) throw std::invalid_argument("ERROR Constructor: width must be >0.");
-            std::size_t height = data.size()/width;
-            if(width*height != data.size()) throw std::invalid_argument("ERROR Constructor: Invalid width for this vector length.");
-
-            w_ = width;
-            h_ = height;
-            total_ = data.size();
-            data_ = std::move(data);
-        }
+        inline const T* get_data() const { return data_; }
 
     private:
-        std::size_t w_, h_, total_;
-        std::vector<T> data_;
+        uint16_t w_, h_;
+
+#ifndef __SYNTHESIS__
+        T *data_;
+#else
+        T data_[size] = {};
+#endif
+
     };
 
     /**
@@ -150,12 +179,8 @@ namespace motdet
          */
         struct Contour
         {
-            int id;                       /**< Unique id of the contour within a Contours class                                       */
-            int parent;                   /**< id of parent contour, 0 means top-level contour (no parent)                            */
-            bool is_hole;                 /**< A contour can either surround a hole (0-pixels) or be an outline, surrounding 1-pixels */
-            std::size_t n_pixels;         /**< Number of border pixels that compose this Contour                                      */
-            std::size_t bb_tl_x, bb_tl_y; /**< Top left point of the bounding box of the Contour                                      */
-            std::size_t bb_br_x, bb_br_y; /**< Bottom right point of the bounding box of the Contour                                  */
+            uint16_t bb_tl_x, bb_tl_y; /**< Top left point of the bounding box of the Contour     */
+            uint16_t bb_br_x, bb_br_y; /**< Bottom right point of the bounding box of the Contour */
         };
 
         /**
@@ -164,9 +189,8 @@ namespace motdet
          */
         struct Detection
         {
-            bool has_detections;                     /**< True if motion has been detected                        */
-            std::vector<Contour> detection_contours; /**< Contour of the detected movements                       */
-            unsigned long long processing_time;      /**< Time it took the frame to be processed                  */
+            uint32_t detection_count = 0;     /**< Amount of detected movement contours */
+            Contour detections[max_contours]; /**< Contour of the detected movements    */
         };
 
         /**
@@ -174,14 +198,11 @@ namespace motdet
          * @details Creates a threaded motion detector object.
          * It uses a reference image internally to compare to and this reference is slowly interpolated with new frames to adapt to scenario changes.
          * If the update span is too high, precision loss might make the reference not update, 5 seconds is a good update span.
-         * @param downsample_factor Reduce the size of the image for faster processing. 1 will not downsample. Must be >0.
          * @param frame_update_ratio Ratio at which the reference is updated. Closer to 0 is slower.
-         * Calculate using the following formula: 1/(fps*seconds). The default used is fps = 30 and seconds = 5.
-         * @throw invalid_argument if threads == 0, queue_size == 0, downsample_factor == 0, width < 10 or height < 10
+         * Calculate using the following formula: 1/(fps*seconds). The recommended value is fps = 30 and seconds = 5, 0.0067.
          */
-        Motion_detector(const std::size_t width, const std::size_t height, const unsigned int downsample_factor = 1, const float frame_update_ratio = 0.0067);
+        Motion_detector(const float frame_update_ratio);
 
-        Motion_detector() = delete;
         Motion_detector(const Motion_detector &other) = delete;
         Motion_detector(Motion_detector &&other) = delete;
 
@@ -192,17 +213,15 @@ namespace motdet
 
         // General Methods
 
-        Detection detect_motion(const Image<unsigned short> &in);
+        void detect_motion(const Image<uint16_t, original_total> &in, Detection &out_detection);
 
     private:
 
-        std::size_t w_, h_, total_, downsampled_w_, downsampled_h_;
-
         float frame_update_ratio_;
-        unsigned int min_cont_area_, downsample_factor_;
+        uint32_t min_cont_area_;
 
         bool has_reference_ = false;
-        Image<unsigned short> reference_;
+        Image<uint16_t, motdet_total> reference_;
     };
 
 
@@ -213,7 +232,7 @@ namespace motdet
      * @param n_pix Number of elements present in array "in". An R-G-B triplet in "in" counts as 1 element.
      * @param out 16b grayscale image that will be outputted.
      */
-    void uchar_to_bw(const unsigned char *in, const std::size_t n_pix, Image<unsigned short> &out);
+    void uchar_to_bw(const unsigned char *in, const uint32_t n_pix, Image<uint16_t, original_total> &out);
 
 } // namespace motdet
 
