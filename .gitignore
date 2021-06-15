@@ -13,6 +13,9 @@
 # Custom
 
 **/dev_notes
+**/hls_project
+**/motdet_hls
+*.log
 
 # Compiled Object files
 *.slo
