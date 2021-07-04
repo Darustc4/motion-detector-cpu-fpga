@@ -234,16 +234,10 @@ namespace motdet
                 // Update bbox and amount of border pixels.
                 if(found_pair4)
                 {
-                    if(found_contour.bb_br_x <= j4 && found_contour.bb_br_y <= i4)
-                    {
-                        found_contour.bb_br_x = j4;
-                        found_contour.bb_br_y = i4;
-                    }
-                    else if(found_contour.bb_tl_x >= j4 && found_contour.bb_tl_y >= i4)
-                    {
-                        found_contour.bb_tl_x = j4;
-                        found_contour.bb_tl_y = i4;
-                    }
+                    if(found_contour.bb_br_x <= j4) found_contour.bb_br_x = j4;
+                    else if(found_contour.bb_tl_x >= j4) found_contour.bb_tl_x = j4;
+                    if(found_contour.bb_br_y <= i4) found_contour.bb_br_y = i4;
+                    else if(found_contour.bb_tl_y >= i4) found_contour.bb_tl_y = i4;
                 }
 
                 // (a) If the pixel (i3, j3 + 1) is a O-pixel examined in the

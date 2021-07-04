@@ -1,4 +1,4 @@
-#include "test_contour_detector.hpp"
+    #include "test_contour_detector.hpp"
 #include "test_utils.hpp"
 
 #include <iostream>
@@ -78,7 +78,7 @@ namespace test
             bool test_img0_c3_parent = cont.parent == 0;
             bool test_img0_c3_hole = cont.is_hole == false;
             bool test_img0_c3_pixels = cont.n_pixels == 36;
-            bool test_img0_c3_bbox = cont.bb_tl_x == 4 && cont.bb_tl_y == 3 && cont.bb_br_x == 10 && cont.bb_br_y == 13;
+            bool test_img0_c3_bbox = cont.bb_tl_x == 1 && cont.bb_tl_y == 3 && cont.bb_br_x == 10 && cont.bb_br_y == 13;
             bool test_img0_c3 = test_img0_c3_id && test_img0_c3_parent && test_img0_c3_hole && test_img0_c3_pixels && test_img0_c3_bbox;
             CHECK_TRUE(test_img0_c3);
 
@@ -87,7 +87,7 @@ namespace test
             bool test_img0_c4_parent = cont.parent == 3;
             bool test_img0_c4_hole = cont.is_hole == true;
             bool test_img0_c4_pixels = cont.n_pixels == 22;
-            bool test_img0_c4_bbox = cont.bb_tl_x == 6 && cont.bb_tl_y == 4 && cont.bb_br_x == 9 && cont.bb_br_y == 8;
+            bool test_img0_c4_bbox = cont.bb_tl_x == 3 && cont.bb_tl_y == 4 && cont.bb_br_x == 9 && cont.bb_br_y == 12;
             bool test_img0_c4 = test_img0_c4_id && test_img0_c4_parent && test_img0_c4_hole && test_img0_c4_pixels && test_img0_c4_bbox;
             CHECK_TRUE(test_img0_c4);
 
@@ -104,7 +104,8 @@ namespace test
 
             bool test_img0 = test_img0_map && test_img0_conts;
 
-            /* Useful for debugging
+            // Useful for debugging
+            /*
             for(const motdet::Motion_detector::Contour &cont : img0_contours)
             {
                 std::cout << "id " << cont.id << std::endl;
@@ -117,6 +118,7 @@ namespace test
                 std::cout << "bb_br_y " << cont.bb_br_y << std::endl << std::endl;
             }
             */
+
 
             // Check 2, hierarchy test
 
@@ -202,7 +204,7 @@ namespace test
             bool test_img1_c3_parent = cont.parent == 2;
             bool test_img1_c3_hole = cont.is_hole == true;
             bool test_img1_c3_pixels = cont.n_pixels == 69;
-            bool test_img1_c3_bbox = cont.bb_tl_x == 3 && cont.bb_tl_y == 2 && cont.bb_br_x == 16 && cont.bb_br_y == 23;
+            bool test_img1_c3_bbox = cont.bb_tl_x == 2 && cont.bb_tl_y == 2 && cont.bb_br_x == 16 && cont.bb_br_y == 24;
             bool test_img1_c3 = test_img1_c3_id && test_img1_c3_parent && test_img1_c3_hole && test_img1_c3_pixels && test_img1_c3_bbox;
             CHECK_TRUE(test_img1_c3);
 
@@ -220,7 +222,7 @@ namespace test
             bool test_img1_c5_parent = cont.parent == 4;
             bool test_img1_c5_hole = cont.is_hole == true;
             bool test_img1_c5_pixels = cont.n_pixels == 45;
-            bool test_img1_c5_bbox = cont.bb_tl_x == 6 && cont.bb_tl_y == 5 && cont.bb_br_x == 13 && cont.bb_br_y == 20;
+            bool test_img1_c5_bbox = cont.bb_tl_x == 5 && cont.bb_tl_y == 5 && cont.bb_br_x == 13 && cont.bb_br_y == 21;
             bool test_img1_c5 = test_img1_c5_id && test_img1_c5_parent && test_img1_c5_hole && test_img1_c5_pixels && test_img1_c5_bbox;
             CHECK_TRUE(test_img1_c5);
 
@@ -256,7 +258,7 @@ namespace test
             bool test_img1_c9_parent = cont.parent == 5;
             bool test_img1_c9_hole = cont.is_hole == false;
             bool test_img1_c9_pixels = cont.n_pixels == 13;
-            bool test_img1_c9_bbox = cont.bb_tl_x == 7 && cont.bb_tl_y == 14 && cont.bb_br_x == 9 && cont.bb_br_y == 18;
+            bool test_img1_c9_bbox = cont.bb_tl_x == 7 && cont.bb_tl_y == 13 && cont.bb_br_x == 9 && cont.bb_br_y == 19;
             bool test_img1_c9 = test_img1_c9_id && test_img1_c9_parent && test_img1_c9_hole && test_img1_c9_pixels && test_img1_c9_bbox;
             CHECK_TRUE(test_img1_c9);
 
