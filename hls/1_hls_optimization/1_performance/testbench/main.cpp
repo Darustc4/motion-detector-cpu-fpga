@@ -47,22 +47,28 @@ int main(int argc, char** argv)
 
         if(frame.empty() || millis_frame < millis_prev_frame) break; // Check for the end of the input video.
 
-        if(millis_frame < 10000 || millis_frame > 11000) continue; // <<<<<< TESTING PURPOSES >>>>>>
+        if(millis_frame < 9000 || millis_frame > 11000) continue; // <<<<<< TESTING PURPOSES >>>>>>
 
         // Video did not end, get the data from the frame.
 
         unsigned char *rgb_data = (unsigned char *)frame.data;
 
-        hls::stream<uint16_t, MOTDET_STREAM_DEPTH> &image_in = *(new hls::stream<uint16_t, MOTDET_STREAM_DEPTH>());
+        hls::stream<motdet::Packed_pix, MOTDET_STREAM_DEPTH> &image_in = *(new hls::stream<motdet::Packed_pix, MOTDET_STREAM_DEPTH>());
         motdet::Contour_package conts;
 
         // Turn the RGB image to grayscale before sending to FPGA
-        for(uint32_t i = 0; i < motdet::original_total; ++i)
+        for(uint32_t i = 0; i < motdet::original_total; i += motdet::motdet_reduction_factor)
         {
-            uint32_t mapped = i*3;
-            image_in.write(rgb_data[mapped] * 76.245 + rgb_data[mapped+1] * 149.685 + rgb_data[mapped+2] * 29.07);
-        }
+        	motdet::Packed_pix packed;
+        	for(uint8_t k = 0; k < motdet::motdet_reduction_factor; ++k)
+        	{
+        		uint32_t mapped = (i+k)*3;
+        		packed.pix[k] = rgb_data[mapped] * 76.245 + rgb_data[mapped+1] * 149.685 + rgb_data[mapped+2] * 29.07;
+        	}
+        	image_in.write(packed);
 
+        }
+        conts.contour_count = 0;
         detect_motion(image_in, conts); // Submit frame to FPGA for processing.
 
         // Process the detected movement contours. Start or stop recording accordingly.
