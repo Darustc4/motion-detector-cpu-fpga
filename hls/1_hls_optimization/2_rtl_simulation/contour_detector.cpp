@@ -56,8 +56,10 @@ namespace motdet
                     update_cont(repr_c1, conts.contours[repr_c0].bb_tl_x, conts.contours[repr_c0].bb_tl_y);
                 }
 
-                void get_merged_conts(Contour_package &out)
+                void get_merged_conts(hls::stream<Streamed_contour, MOTDET_STREAM_DEPTH> &out)
                 {
+                	Streamed_contour streamed_cont;
+
                     for(uint16_t k = 0; k < conts.contour_count; ++k)
                     {
 #pragma HLS LOOP_TRIPCOUNT avg=30 max=1023 min=0
@@ -67,11 +69,14 @@ namespace motdet
                             uint32_t area = hls::abs((conts.contours[k].bb_tl_x - conts.contours[k].bb_br_x) * (conts.contours[k].bb_tl_y - conts.contours[k].bb_br_y));
                             if(area >= motdet_min_cont_area)
                             {
-                                uint16_t new_cont = out.contour_count++;
-                                out.contours[new_cont] = conts.contours[k];
+                            	streamed_cont.contour = conts.contours[k];
+                            	streamed_cont.stream_end = false;
+                            	out.write(streamed_cont);
                             }
                         }
                     }
+                    streamed_cont.stream_end = true;
+                    out.write(streamed_cont);
                 }
 
             private:
@@ -81,12 +86,13 @@ namespace motdet
 
         }
 
-        void connected_components(hls::stream<uint8_t, MOTDET_STREAM_DEPTH> &in, Contour_package &contours)
+        void connected_components(hls::stream<uint8_t, MOTDET_STREAM_DEPTH> &in, hls::stream<motdet::Streamed_contour, MOTDET_STREAM_DEPTH> &out)
         {
-            // Find the contours in the image, we are using a one pass algorithm so in some cases it is not possible to know if 2 pixels belong to the same object.
-            // This why we tag them as different contours and then "merge" them when a pixel that connects both is discovered.
-            // In essence, we have a graph of blobs with a set of connections (mergers), so we can use well known graph theory algorithms here.
-            // Use a disjoint-set data structures, based on a list of trees with representative nodes.
+
+		// Find the contours in the image, we are using a one pass algorithm so in some cases it is not possible to know if 2 pixels belong to the same object.
+		// This why we tag them as different contours and then "merge" them when a pixel that connects both is discovered.
+		// In essence, we have a graph of blobs with a set of connections (mergers), so we can use well known graph theory algorithms here.
+		// Use a disjoint-set data structures, based on a list of trees with representative nodes.
 
         #ifndef __SYNTHESIS__
             uint16_t *buffer = new uint16_t[motdet_width];
@@ -145,7 +151,7 @@ namespace motdet
                 }
             }
 
-            dcc.get_merged_conts(contours);
+            dcc.get_merged_conts(out);
 
         #ifndef __SYNTHESIS__
             delete[] buffer;

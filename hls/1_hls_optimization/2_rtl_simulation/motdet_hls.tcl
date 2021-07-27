@@ -8,9 +8,9 @@ set OPENCV_LIB "E:/Programs/OpenCV4/x64/mingw/lib"
 # ------------------------------------------------------------------------------
 # Vitis HLS Project Information
 # ------------------------------------------------------------------------------
-set PROJ_DIR "C:/Users/bfant/Desktop/Work/University/TFG/motion_detector/repo/motion-detector-cpu-fpga/hls/1_hls_optimization/2_fine_tuning"
-set SOURCE_DIR "$PROJ_DIR/src"
-set TB_DIR "$PROJ_DIR/testbench"
+set PROJ_DIR "C:/Users/bfant/Desktop/Work/University/TFG/motion_detector/repo/motion-detector-cpu-fpga/hls/1_hls_optimization/2_rtl_simulation"
+set SOURCE_DIR "$PROJ_DIR"
+set TB_DIR "$PROJ_DIR"
 set PROJ_NAME "motdet_hls"
 set PROJ_TOP "detect_motion"
 set SOLUTION_NAME "initial"

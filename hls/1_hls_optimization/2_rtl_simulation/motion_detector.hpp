@@ -6,20 +6,26 @@
 #include "hls_stream.h"
 
 #ifndef MOTDET_STREAM_DEPTH
-#define MOTDET_STREAM_DEPTH 2
+#define MOTDET_STREAM_DEPTH 600000
 #endif
 
 namespace motdet
 {
+
     const uint32_t original_width = 1920;
     const uint32_t original_height = 1080;
+    //const uint32_t original_width = 32;
+    //const uint32_t original_height = 32;
+
     const float motdet_frame_update_ratio = 0.0067;
     const uint32_t motdet_max_contours = 1023;
     const uint8_t motdet_reduction_factor = 4;
 
-    const uint16_t motdet_threshold = 25000;
+    const uint16_t motdet_threshold = 22500;
 
     // How to calculate: motdet_width = ceil( original_width/reduction_factor )
+    //const uint32_t motdet_width = 8;
+    //const uint32_t motdet_height = 8;
     const uint32_t motdet_width = 480;
     const uint32_t motdet_height = 270;
 
@@ -32,6 +38,12 @@ namespace motdet
     {
         uint16_t bb_tl_x, bb_tl_y; /**< Top left point of the bounding box of the Contour     */
         uint16_t bb_br_x, bb_br_y; /**< Bottom right point of the bounding box of the Contour */
+    };
+
+    struct Streamed_contour
+    {
+    	Contour contour;
+    	bool stream_end;
     };
 
     struct Contour_package
@@ -52,6 +64,6 @@ namespace motdet
  * @param in grayscale streamed image where each pixel is represented by a 16b unsigned integer. The higher, the more intense white.
  * @param out Set of contours that have been detected as movement.
  */
-void detect_motion(hls::stream<motdet::Packed_pix, MOTDET_STREAM_DEPTH> &in, motdet::Contour_package &out);
+void detect_motion(hls::stream<motdet::Packed_pix, MOTDET_STREAM_DEPTH> &in, hls::stream<motdet::Streamed_contour, MOTDET_STREAM_DEPTH> &out);
 
 #endif // __MOTDET_MOTION_DETECTOR_HPP__

@@ -10,8 +10,6 @@ namespace motdet
 {
     namespace imgutil
     {
-        void set_reference(hls::stream<uint16_t, MOTDET_STREAM_DEPTH> &in);
-
         /**
          * @brief Apply a 5x5 blurring filter to an image using a split kernel.
          * @param in Grayscale streamed image to blur.

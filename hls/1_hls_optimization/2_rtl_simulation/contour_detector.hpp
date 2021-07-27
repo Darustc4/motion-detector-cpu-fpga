@@ -16,7 +16,7 @@ namespace motdet
          * @param in Binary image. All values must be either 0 or 1 upon input. It is completely consumed.
          * @param conts The found contour boundign boxes without hierarchy.
          */
-        void connected_components(hls::stream<uint8_t, MOTDET_STREAM_DEPTH> &in, Contour_package &contours);
+    	void connected_components(hls::stream<uint8_t, MOTDET_STREAM_DEPTH> &in, hls::stream<motdet::Streamed_contour, MOTDET_STREAM_DEPTH> &out);
 
     } // namespace imgutil
 } // namespace motdet
