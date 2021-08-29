@@ -1,9 +1,7 @@
 # Compiling and using the CPU version
 
 Important notice: The CMake file for this library only contemplates GNU/Linux package installation. The library can still be compiled on Windows, but the library will NOT be installed.
-
-Commands 
-
+ 
 ## Compiling, installing and testing the motion detector library.
 
 Open a terminal/command line and navigate to the directory where this README is located.
