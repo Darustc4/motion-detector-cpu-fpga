@@ -15,6 +15,9 @@ target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
 # Link motion_detector library to the executable
 target_link_libraries(${PROJECT_NAME} motion_detector)
 
+# Link the filesystem library
+target_link_libraries(${PROJECT_NAME} stdc++fs)
+
 # Set compiler flags. Tell it to treat warnings as errors, pedantic and c++11
 target_compile_options(${PROJECT_NAME} PRIVATE -Werror -pedantic)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)

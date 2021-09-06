@@ -33,14 +33,14 @@ namespace motdet
             inline std::array<float, 7> gaussian_kernel_5_({ 0.06136, 0.24477, 0.38775, 0.24477, 0.06136 });
 
             // 3x3 Horizontal sobel edge detection kernel.
-            inline std::array<char, 9> sobel_h_kernel_3x3_({
+            inline std::array<signed char, 9> sobel_h_kernel_3x3_({
                 1,  0, -1,
                 2,  0, -2,
                 1,  0, -1
             });
 
             // 3x3 Vertical sobel edge detection kernel.
-            inline std::array<char, 9> sobel_v_kernel_3x3_({
+            inline std::array<signed char, 9> sobel_v_kernel_3x3_({
                 1,   2,  1,
                 0,   0,  0,
                -1,  -2, -1
